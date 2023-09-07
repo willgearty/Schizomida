@@ -138,7 +138,16 @@ server <- function(input, output, session) {
       data <- data[data$dis %in% input$dis,]
     }
     data
-  }, options = list(scrollX = TRUE)))
+  },
+  extensions = 'Buttons',
+  options = list(
+    scrollX = TRUE,
+    scrollY = "800px",
+    scrollCollapse = TRUE,
+    paging = FALSE,
+    dom = 'Bfrti',
+    buttons = c('copy', 'csv', 'excel')
+  )))
 }
 
 # ui.R ----
