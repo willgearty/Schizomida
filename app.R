@@ -1,6 +1,6 @@
 # The Schizomid Trait Database - ShinyApp
-# Sandro Pascal Müller
-# 2023-07-27
+# William Gearty and Sandro Pascal Müller
+# 2023-09-07
 
 # relevant packages ----
 library(shiny)
@@ -11,7 +11,7 @@ library(readxl)
 library(DT)
 
 # load data ----
-shiny_schiz <- read_xlsx('data/2.1_cleanR_schizomids.xlsx', sheet = 'comb', na = "No data") %>%
+shiny_schiz <- read_xlsx('data/2.1_cleanR_schizomids.xlsx', sheet = 'comb') %>%
   arrange(genus, species, sex)
 male_cols <- colnames(shiny_schiz)[grep("^m_", colnames(shiny_schiz))]
 female_cols <- colnames(shiny_schiz)[grep("^f_", colnames(shiny_schiz))]
@@ -44,7 +44,7 @@ server <- function(input, output, session) {
         sapply(female_cols, hide)
       }
     }
-  })
+  }, ignoreNULL = FALSE)
   # lots of options available: https://datatables.net/reference/option/
   output$table <- DT::renderDataTable(DT::datatable({
     data <- shiny_schiz
