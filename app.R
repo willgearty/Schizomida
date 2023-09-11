@@ -7,63 +7,106 @@ library(shiny)
 library(shinyjs)
 library(ggplot2)
 library(dplyr)
-library(readxl)
+library(openxlsx)
 library(DT)
+library(janitor)
+library(htmltools)
 
 # load data ----
-shiny_schiz <- read_xlsx('data/2.1_cleanR_schizomids.xlsx', sheet = 'comb') %>%
-  arrange(genus, species, sex)
-male_cols <- colnames(shiny_schiz)[grep("^m_", colnames(shiny_schiz))]
-female_cols <- colnames(shiny_schiz)[grep("^f_", colnames(shiny_schiz))]
-# 
+shiny_schiz <- read.xlsx('data/All schizomid species 13.1.xlsx',
+                         sheet = 'All schizomid species new',
+                         fillMergedCells = TRUE)
+cats <- data.frame(cat = colnames(shiny_schiz), col = as.character(shiny_schiz[1, ])) %>%
+  mutate(cat = gsub(".", " ", cat, fixed = TRUE))
+shiny_schiz <- shiny_schiz %>%
+  row_to_names(1) %>%
+  arrange(Family, Subfamily, Genus, Species, Sex) %>%
+  mutate(across(where(is.character), ~na_if(., ""))) %>%
+  mutate()
+male_cols <- cats$col[grepl("(male", cats$cat, fixed = TRUE) |
+                        grepl("(male", cats$col, fixed = TRUE)]
+female_cols <- cats$col[grepl("(female", cats$cat, fixed = TRUE) |
+                          grepl("(female", cats$col, fixed = TRUE)]
+
 # round all numeric columns to 2 decimal places
+
+# generate table layout
+double_row <- which(cats$cat == cats$col)
+col_width <- table(cats$cat)[unique(cats$cat[-double_row])]
+tab_layout <- withTags(table(
+  class = 'display',
+  thead(
+    tr(
+      lapply(cats$cat[double_row], th, rowspan = 2),
+      lapply(seq_along(col_width), function(i) {
+        th(names(col_width)[i], colspan = col_width[i])
+      })
+    ),
+    tr(
+      lapply(cats$col[-double_row], th)
+    )
+  )
+))
+
+# for formatting NAs
+# based on https://stackoverflow.com/a/58526580/4660582
+rowCallback <- c(
+  "function(row, data){",
+  "  $(row).find('td').each(function (index, td) {",
+  "    var $td = $(td);",
+  "    if ($td.html() == '') {",
+  "      $td.html('NA').css({'color': 'rgb(151,151,151)', 'font-style': 'italic'})",
+  "    }",
+  "  })",
+  "}"
+)
 
 # server.R ----
 server <- function(input, output, session) {
   observeEvent(input$genus, {
     dat <- shiny_schiz
-    if (!is.null(input$genus)) dat <- dat %>% filter(genus %in% input$genus)
-    choices <- sort(unique(as.character(dat$species)))
+    if (!is.null(input$genus)) dat <- dat %>% filter(Genus %in% input$genus)
+    choices <- sort(unique(as.character(dat$Species)))
     updateSelectInput(inputId = "species", choices = choices)
   }, ignoreNULL = FALSE)
   observeEvent(list(input$genus, input$species), {
     dat <- shiny_schiz
-    if (!is.null(input$genus)) dat <- dat %>% filter(genus %in% input$genus)
-    if (!is.null(input$species)) dat <- dat %>% filter(species %in% input$species)
-    choices <- sort(unique(as.character(dat$sex)))
+    if (!is.null(input$genus)) dat <- dat %>% filter(Genus %in% input$genus)
+    if (!is.null(input$species)) dat <- dat %>% filter(Species %in% input$species)
+    choices <- sort(unique(as.character(dat$Sex)))
     updateSelectInput(inputId = "sex", choices = choices)
   }, ignoreNULL = FALSE, ignoreInit = TRUE)
   observeEvent(input$sex, {
+    # show/hide male/female filters and columns
     sapply(male_cols, show)
     sapply(female_cols, show)
     if (!is.null(input$sex)) {
       if (! "male" %in% input$sex) {
         sapply(male_cols, hide)
+        hideCols(dataTableProxy('table'),
+                 unname(sapply(male_cols,
+                               function(x) which(x == colnames(data)) - 1)))
       }
       if (! "female" %in% input$sex) {
         sapply(female_cols, hide)
+        hideCols(dataTableProxy('table'),
+                 unname(sapply(female_cols,
+                               function(x) which(x == colnames(data)) - 1)))
       }
     }
   }, ignoreNULL = FALSE)
+  data <- shiny_schiz # set the scope of this variable
   # lots of options available: https://datatables.net/reference/option/
   output$table <- DT::renderDataTable(DT::datatable({
     data <- shiny_schiz
     if(!is.null(input$genus)) {
-      data <- data[data$genus %in% input$genus,]
+      data <- data[data$Genus %in% input$genus,]
     }
     if(!is.null(input$species)) {
-      data <- data[data$species %in% input$species,]
+      data <- data[data$Species %in% input$species,]
     }
     if(!is.null(input$sex)) {
-      data <- data[data$sex %in% input$sex,]
-      if (! "male" %in% input$sex) {
-        data <- data %>%
-          select(-male_cols)
-      }
-      if (! "female" %in% input$sex) {
-        data <- data %>%
-          select(-female_cols)
-      }
+      data <- data[data$Sex %in% input$sex,]
     }
     if(!is.null(input$ant_pro)) {
       data <- data[data$ant_pro %in% input$ant_pro,]
@@ -139,21 +182,34 @@ server <- function(input, output, session) {
     }
     data
   },
+  container = tab_layout,
+  rownames = FALSE,
+  style = 'bootstrap', class = 'table-bordered',
   extensions = 'Buttons',
   options = list(
     scrollX = TRUE,
-    scrollY = "800px",
+    scrollY = "725px",
     scrollCollapse = TRUE,
     paging = FALSE,
     dom = 'Bfrti',
-    buttons = c('copy', 'csv', 'excel')
-  )))
+    buttons = list(
+      list(extend = "copy", exportOptions = list(columns = ":visible")),
+      list(extend = "csv", exportOptions = list(columns = ":visible")),
+      list(extend = "excel", exportOptions = list(columns = ":visible"))
+    ),
+    rowCallback = JS(rowCallback) # formatting NAs
+  )) %>%
+    formatStyle('Genus', fontStyle = "italic") %>%
+    formatStyle('Species', fontStyle = "italic"))
 }
 
 # ui.R ----
 ui <- {
   fluidPage(
     useShinyjs(),
+    tags$head(tags$style("#genus option, #genus + div, #species option, #species + div {
+      font-style: italic;
+    }")),
     titlePanel('Schizomid Trait Database'),
     sidebarLayout(sidebarPanel(fluidRow(
       tabsetPanel(
@@ -164,7 +220,7 @@ ui <- {
             selectInput(
               inputId = 'genus',
               label = 'Genus',
-              choices = sort(unique(as.character(shiny_schiz$genus))),
+              choices = sort(unique(as.character(shiny_schiz$Genus))),
               multiple = TRUE
             )
           ),
@@ -173,9 +229,7 @@ ui <- {
             selectInput(
               inputId = 'species',
               label = 'Species',
-              choices = sort(unique(as.character(
-                shiny_schiz$species
-              ))),
+              choices = sort(unique(as.character(shiny_schiz$Species))),
               multiple = TRUE
             )
           ),
@@ -184,7 +238,7 @@ ui <- {
             selectInput(
               inputId = 'sex',
               label = 'Sex',
-              choices = sort(unique(as.character(shiny_schiz$sex))),
+              choices = sort(unique(as.character(shiny_schiz$Sex))),
               multiple = TRUE
             )
           ),
