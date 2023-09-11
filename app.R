@@ -17,12 +17,21 @@ shiny_schiz <- read.xlsx('data/All schizomid species 13.1.xlsx',
                          sheet = 'All schizomid species new',
                          fillMergedCells = TRUE)
 cats <- data.frame(cat = colnames(shiny_schiz), col = as.character(shiny_schiz[1, ])) %>%
-  mutate(cat = gsub(".", " ", cat, fixed = TRUE))
+  mutate(cat = gsub(".", " ", cat, fixed = TRUE)) %>%
+  mutate(tab = case_when(
+    cat %in% c("Family", "Subfamily", "Genus", "Species", "Sex") ~ 1, # Taxonomy and Sex
+    cat %in% c("Opisthosoma", "Spermathecae (females)", "Flagellum") ~ 3, # Opisthosoma
+    cat %in% c("Size", "Legs") ~ 4, # Legs and Size
+    cat %in% c("Ecology", "Distribution") ~ 5,
+    .default = 2 # Prosoma
+  )) %>%
+  mutate(col = gsub(":", " -", col))
 shiny_schiz <- shiny_schiz %>%
   row_to_names(1) %>%
   arrange(Family, Subfamily, Genus, Species, Sex) %>%
   mutate(across(where(is.character), ~na_if(., ""))) %>%
   mutate()
+colnames(shiny_schiz) <- gsub(":", " -", colnames(shiny_schiz))
 male_cols <- cats$col[grepl("(male", cats$cat, fixed = TRUE) |
                         grepl("(male", cats$col, fixed = TRUE)]
 female_cols <- cats$col[grepl("(female", cats$cat, fixed = TRUE) |
@@ -63,21 +72,46 @@ rowCallback <- c(
 
 # server.R ----
 server <- function(input, output, session) {
-  observeEvent(input$genus, {
+  # update subfamily if family is changed
+  observeEvent(list(input$Family), {
     dat <- shiny_schiz
-    if (!is.null(input$genus)) dat <- dat %>% filter(Genus %in% input$genus)
-    choices <- sort(unique(as.character(dat$Species)))
-    updateSelectInput(inputId = "species", choices = choices)
-  }, ignoreNULL = FALSE)
-  observeEvent(list(input$genus, input$species), {
-    dat <- shiny_schiz
-    if (!is.null(input$genus)) dat <- dat %>% filter(Genus %in% input$genus)
-    if (!is.null(input$species)) dat <- dat %>% filter(Species %in% input$species)
-    choices <- sort(unique(as.character(dat$Sex)))
-    updateSelectInput(inputId = "sex", choices = choices)
+    if (!is.null(input$Family)) dat <- dat %>% filter(Family %in% input$Family)
+    choices <- sort(unique(as.character(dat$Subfamily)))
+    updateSelectInput(inputId = "Subfamily", choices = choices)
   }, ignoreNULL = FALSE, ignoreInit = TRUE)
+  
+  # update genus if family/subfamily is changed
+  observeEvent(list(input$Family, input$Subfamily), {
+    dat <- shiny_schiz
+    if (!is.null(input$Family)) dat <- dat %>% filter(Family %in% input$Family)
+    if (!is.null(input$Subfamily)) dat <- dat %>% filter(Subfamily %in% input$Subfamily)
+    choices <- sort(unique(as.character(dat$Genus)))
+    updateSelectInput(inputId = "Genus", choices = choices)
+  }, ignoreNULL = FALSE, ignoreInit = TRUE)
+  
+  # update species if family/subfamily/genus is changed
+  observeEvent(list(input$Family, input$Subfamily, input$Genus), {
+    dat <- shiny_schiz
+    if (!is.null(input$Family)) dat <- dat %>% filter(Family %in% input$Family)
+    if (!is.null(input$Subfamily)) dat <- dat %>% filter(Subfamily %in% input$Subfamily)
+    if (!is.null(input$Genus)) dat <- dat %>% filter(Genus %in% input$Genus)
+    choices <- sort(unique(as.character(dat$Species)))
+    updateSelectInput(inputId = "Species", choices = choices)
+  }, ignoreNULL = FALSE)
+  
+  # update sex if family/subfamily/genus/species is changed
+  observeEvent(list(input$Family, input$Subfamily, input$Genus, input$Species), {
+    dat <- shiny_schiz
+    if (!is.null(input$Family)) dat <- dat %>% filter(Family %in% input$Family)
+    if (!is.null(input$Subfamily)) dat <- dat %>% filter(Subfamily %in% input$Subfamily)
+    if (!is.null(input$Genus)) dat <- dat %>% filter(Genus %in% input$Genus)
+    if (!is.null(input$Species)) dat <- dat %>% filter(Species %in% input$Species)
+    choices <- sort(unique(as.character(dat$Sex)))
+    updateSelectInput(inputId = "Sex", choices = choices)
+  }, ignoreNULL = FALSE, ignoreInit = TRUE)
+  
+  # update male/female filters and columns when sex is changed
   observeEvent(input$sex, {
-    # show/hide male/female filters and columns
     sapply(male_cols, show)
     sapply(female_cols, show)
     if (!is.null(input$sex)) {
@@ -95,90 +129,18 @@ server <- function(input, output, session) {
       }
     }
   }, ignoreNULL = FALSE)
+  
   data <- shiny_schiz # set the scope of this variable
   # lots of options available: https://datatables.net/reference/option/
   output$table <- DT::renderDataTable(DT::datatable({
     data <- shiny_schiz
-    if(!is.null(input$genus)) {
-      data <- data[data$Genus %in% input$genus,]
-    }
-    if(!is.null(input$species)) {
-      data <- data[data$Species %in% input$species,]
-    }
-    if(!is.null(input$sex)) {
-      data <- data[data$Sex %in% input$sex,]
-    }
-    if(!is.null(input$ant_pro)) {
-      data <- data[data$ant_pro %in% input$ant_pro,]
-    }
-    if(!is.null(input$base_ant_pro)) {
-      data <- data[data$base_ant_pro %in% input$base_ant_pro,]
-    }
-    if(!is.null(input$pro_ds)) {
-      data <- data[data$pro_ds %in% input$pro_ds,]
-    }
-    if(!is.null(input$eyes)) {
-      data <- data[data$eyes %in% input$eyes,]
-    }
-    if(!is.null(input$mpt)) {
-      data <- data[data$mpt %in% input$mpt,]
-    }
-    if(!is.null(input$pp_di)) {
-      data <- data[data$pp_di %in% input$pp_di,]
-    }
-    if(!is.null(input$pp_msl_sp)) {
-      data <- data[data$pp_msl_sp %in% input$pp_msl_sp,]
-    }
-    if(!is.null(input$pp_tr_ap)) {
-      data <- data[data$pp_tr_ap %in% input$pp_tr_ap,]
-    }
-    if(!is.null(input$cc_mf_gt)) {
-      data <- data[data$cc_mf_gt %in% input$cc_mf_gt,]
-    }
-    if(!is.null(input$cc_mf_at)) {
-      data <- data[data$cc_mf_at %in% input$cc_mf_at,]
-    }
-    if(!is.null(input$cc_if_st)) {
-      data <- data[data$cc_if_st %in% input$cc_if_st,]
-    }
-    if(!is.null(input$os_II)) {
-      data <- data[data$os_II %in% input$os_II,]
-    }
-    if(!is.null(input$os_elong)) {
-      data <- data[data$os_elong %in% input$os_elong,]
-    }
-    if(!is.null(input$os_pstds_pro)) {
-      data <- data[data$os_pstds_pro %in% input$os_pstds_pro,]
-    }
-    if(!is.null(input$os_pstds_pro_sh)) {
-      data <- data[data$os_pstds_pro_sh %in% input$os_pstds_pro_sh,]
-    }
-    if(!is.null(input$m_flg_sh)) {
-      data <- data[data$m_flg_sh %in% input$m_flg_sh,]
-    }
-    if(!is.null(input$f_sp_lob)) {
-      data <- data[data$f_sp_lob %in% input$f_sp_lob,]
-    }
-    if(!is.null(input$f_sp_go)) {
-      data <- data[data$f_sp_go %in% input$f_sp_go,]
-    }
-    if(!is.null(input$f_flgmrs)) {
-      data <- data[data$f_flgmrs %in% input$f_flgmrs,]
-    }
-    if(!is.null(input$l_IV_mrg)) {
-      data <- data[data$l_IV_mrg %in% input$l_IV_mrg,]
-    }
-    if(!is.null(input$hab)) {
-      data <- data[data$hab %in% input$hab,]
-    }
-    if(!is.null(input$region)) {
-      data <- data[data$region %in% input$region,]
-    }
-    if(!is.null(input$un_reg)) {
-      data <- data[data$un_reg %in% input$un_reg,]
-    }
-    if(!is.null(input$dis)) {
-      data <- data[data$dis %in% input$dis,]
+    cols <- colnames(data)
+    for (input_name in cols) {
+      input_value <- input[[input_name]]
+      if (!is.null(input_value)) {
+        data <- data %>%
+          filter(!!as.symbol(input_name) %in% input_value)
+      }
     }
     data
   },
@@ -188,7 +150,7 @@ server <- function(input, output, session) {
   extensions = 'Buttons',
   options = list(
     scrollX = TRUE,
-    scrollY = "725px",
+    scrollY = "600px",
     scrollCollapse = TRUE,
     paging = FALSE,
     dom = 'Bfrti',
@@ -204,6 +166,7 @@ server <- function(input, output, session) {
 }
 
 # ui.R ----
+# process inputs
 ui <- {
   fluidPage(
     useShinyjs(),
@@ -215,287 +178,77 @@ ui <- {
       tabsetPanel(
         tabPanel(
           "Taxonomy and Sex",
-          column(
-            4,
-            selectInput(
-              inputId = 'genus',
-              label = 'Genus',
-              choices = sort(unique(as.character(shiny_schiz$Genus))),
-              multiple = TRUE
+          lapply(cats$col[cats$tab == 1], function(x) {
+            column(4,
+                   selectInput(inputId = x, label = x,
+                               choices = sort(unique(as.character(shiny_schiz[[x]]))),
+                               multiple = TRUE)
             )
-          ),
-          column(
-            4,
-            selectInput(
-              inputId = 'species',
-              label = 'Species',
-              choices = sort(unique(as.character(shiny_schiz$Species))),
-              multiple = TRUE
-            )
-          ),
-          column(
-            4,
-            selectInput(
-              inputId = 'sex',
-              label = 'Sex',
-              choices = sort(unique(as.character(shiny_schiz$Sex))),
-              multiple = TRUE
-            )
-          ),
+          })
         ),
         tabPanel(
-          "Morphology",
-          fluidRow(column(
-            6,
-            selectInput(
-              inputId = 'ant_pro',
-              label = 'Setation of anterior process',
-              choices = sort(unique(as.character(
-                shiny_schiz$ant_pro
-              ))),
-              multiple = TRUE
+          "Prosoma",
+          lapply(unique(cats$cat[cats$tab == 2]), function(cat) {
+            list(fluidRow(column(12, h4(cat))),
+                 fluidRow(lapply(cats$col[cats$cat == cat], function(col) {
+                   column(6,
+                          selectInput(inputId = col, label = col,
+                                      choices = sort(unique(as.character(shiny_schiz[[col]]))),
+                                      multiple = TRUE)
+                   )
+                 })
+                 
+                 )
             )
-          ),
-          column(
-            6,
-            selectInput(
-              inputId = 'base_ant_pro',
-              label = 'Setation of base of anterior process',
-              choices = sort(unique(as.character(
-                shiny_schiz$base_ant_pro
-              ))),
-              multiple = TRUE
+          })
+        ),
+        tabPanel(
+          "Opisthosoma",
+          lapply(unique(cats$cat[cats$tab == 3]), function(cat) {
+            list(fluidRow(column(12, h4(cat))),
+                 fluidRow(lapply(cats$col[cats$cat == cat], function(col) {
+                   column(6,
+                          selectInput(inputId = col, label = col,
+                                      choices = sort(unique(as.character(shiny_schiz[[col]]))),
+                                      multiple = TRUE)
+                   )
+                 })
+                 
+                 )
             )
-          )),
-          fluidRow(column(
-            6,
-            selectInput(
-              inputId = 'pro_ds',
-              label = 'Dorsal setation of propeltidium',
-              choices = sort(unique(as.character(shiny_schiz$pro_ds))),
-              multiple = TRUE
+          })
+        ),
+        tabPanel(
+          "Legs and Size",
+          lapply(unique(cats$cat[cats$tab == 4]), function(cat) {
+            list(fluidRow(column(12, h4(cat))),
+                 fluidRow(lapply(cats$col[cats$cat == cat], function(col) {
+                   column(6,
+                          selectInput(inputId = col, label = col,
+                                      choices = sort(unique(as.character(shiny_schiz[[col]]))),
+                                      multiple = TRUE)
+                   )
+                 })
+                 
+                 )
             )
-          ),
-          column(
-            6,
-            selectInput(
-              inputId = 'eyes',
-              label = 'State of vision',
-              choices = sort(unique(as.character(shiny_schiz$eyes))),
-              multiple = TRUE
-            )
-          )),
-          fluidRow(column(
-            4,
-            selectInput(
-              inputId = 'mpt',
-              label = 'State of metapeltidium',
-              choices = sort(unique(as.character(shiny_schiz$mpt))),
-              multiple = TRUE
-            )
-          ),
-          column(
-            4,
-            selectInput(
-              inputId = 'pp_di',
-              label = 'Dimorphism in pedipalps',
-              choices = sort(unique(as.character(shiny_schiz$pp_di))),
-              multiple = TRUE
-            )
-          )),
-          fluidRow(column(
-            6,
-            selectInput(
-              inputId = 'pp_msl_sp',
-              label = 'Mesal spur on pedipalp trochanter',
-              choices = sort(unique(as.character(
-                shiny_schiz$pp_msl_sp
-              ))),
-              multiple = TRUE
-            )
-          ),
-          column(
-            6,
-            selectInput(
-              inputId = 'pp_tr_ap',
-              label = 'Apical process of pedipalp trochanter',
-              choices = sort(unique(as.character(
-                shiny_schiz$pp_tr_ap
-              ))),
-              multiple = TRUE
-            )
-          )),
-          fluidRow(column(
-            6,
-            selectInput(
-              inputId = 'cc_mf_gt',
-              label = 'Guard tooth on movable finger of chelicerae',
-              choices = sort(unique(as.character(
-                shiny_schiz$cc_mf_gt
-              ))),
-              multiple = TRUE
-            )
-          ),
-          column(
-            6,
-            selectInput(
-              inputId = 'cc_mf_at',
-              label = 'Accessory tooth/teeth on movable finger of chelicerae',
-              choices = sort(unique(as.character(
-                shiny_schiz$cc_mf_at
-              ))),
-              multiple = TRUE
-            )
-          )),
-          fluidRow(
-            column(
-              6,
-              selectInput(
-                inputId = 'cc_if_st',
-                label = 'Small tooth/teeth on fixed finger of chelicerae',
-                choices = sort(unique(as.character(
-                  shiny_schiz$cc_if_st
-                ))),
-                multiple = TRUE
-              )
-            ),
-            column(
-              3,
-              selectInput(
-                inputId = 'os_II',
-                label = 'Setation of tergite II',
-                choices = sort(unique(as.character(shiny_schiz$os_II))),
-                multiple = TRUE
-              )
-            ),
-            column(
-              3,
-              selectInput(
-                inputId = 'os_elong',
-                label = 'Elongation of opisthosoma',
-                choices = sort(unique(as.character(
-                  shiny_schiz$os_elong
-                ))),
-                multiple = TRUE
-              )
-            )
-          ),
-          fluidRow(column(
-            6,
-            selectInput(
-              inputId = 'os_pstds_pro',
-              label = 'Posterodorsal process opisthosomal segment XII',
-              choices = sort(unique(as.character(
-                shiny_schiz$os_pstds_pro
-              ))),
-              multiple = TRUE
-            )
-          ),
-          column(
-            6,
-            selectInput(
-              inputId = 'os_pstds_pro_sh',
-              label = 'Shape of posterodorsal process',
-              choices = sort(unique(
-                as.character(shiny_schiz$os_pstds_pro_sh)
-              )),
-              multiple = TRUE
-            )
-          )),
-          fluidRow(column(
-            6,
-            selectInput(
-              inputId = 'm_flg_sh',
-              label = 'Dorsal shape of male flagellum',
-              choices = sort(unique(as.character(
-                shiny_schiz$m_flg_sh
-              ))),
-              multiple = TRUE
-            )
-          ),
-          column(
-            6,
-            selectInput(
-              inputId = 'f_sp_lob',
-              label = 'Number of lobes of female spermatheca',
-              choices = sort(unique(as.character(
-                shiny_schiz$f_sp_lob
-              ))),
-              multiple = TRUE
-            )
-          )),
-          fluidRow(column(
-            6,
-            selectInput(
-              inputId = 'f_sp_go',
-              label = 'Gonopod of female spermatheca',
-              choices = sort(unique(as.character(
-                shiny_schiz$f_sp_go
-              ))),
-              multiple = TRUE
-            )
-          ),
-          column(
-            6,
-            selectInput(
-              inputId = 'f_flgmrs',
-              label = 'Number of flagellomeres in female flagellum',
-              choices = sort(unique(as.character(
-                shiny_schiz$f_flgmrs
-              ))),
-              multiple = TRUE
-            )
-          )),
-          fluidRow(column(
-            6,
-            selectInput(
-              inputId = 'l_IV_mrg',
-              label = 'Anterodorsal margin of femur leg IV',
-              choices = sort(unique(as.character(
-                shiny_schiz$l_IV_mrg
-              ))),
-              multiple = TRUE
-            )
-          ))
+          })
         ),
         tabPanel(
           "Ecology and Locality",
-          fluidRow(column(
-            6,
-            selectInput(
-              inputId = 'hab',
-              label = 'Ecology',
-              choices = sort(unique(as.character(shiny_schiz$hab))),
-              multiple = TRUE
+          lapply(unique(cats$cat[cats$tab == 5]), function(cat) {
+            list(fluidRow(column(12, h4(cat))),
+                 fluidRow(lapply(cats$col[cats$cat == cat], function(col) {
+                   column(6,
+                          selectInput(inputId = col, label = col,
+                                      choices = sort(unique(as.character(shiny_schiz[[col]]))),
+                                      multiple = TRUE)
+                   )
+                 })
+                 
+                 )
             )
-          ),
-          column(
-            6,
-            selectInput(
-              inputId = 'region',
-              label = 'Type locality (country)',
-              choices = sort(unique(as.character(shiny_schiz$region))),
-              multiple = TRUE
-            )
-          )),
-          fluidRow(column(
-            6,
-            selectInput(
-              inputId = 'un_reg',
-              label = 'Type locality (UN region)',
-              choices = sort(unique(as.character(shiny_schiz$un_reg))),
-              multiple = TRUE
-            )
-          ),
-          column(
-            6,
-            selectInput(
-              inputId = 'dis',
-              label = 'Type locality (distribution/stratigraphy)',
-              choices = sort(unique(as.character(shiny_schiz$dis))),
-              multiple = TRUE
-            )
-          ))
+          })
         )
       )
     ),),
