@@ -25,17 +25,25 @@ cats <- data.frame(cat = colnames(shiny_schiz), col = as.character(shiny_schiz[1
     cat %in% c("Ecology", "Distribution") ~ 5,
     .default = 2 # Prosoma
   )) %>%
-  mutate(col = gsub(":", " -", col))
+  mutate(col = gsub(":", " -", col)) # replace colons with dashes
 shiny_schiz <- shiny_schiz %>%
   row_to_names(1) %>%
   arrange(Family, Subfamily, Genus, Species, Sex) %>%
   mutate(across(where(is.character), ~na_if(., ""))) %>%
   mutate()
 colnames(shiny_schiz) <- gsub(":", " -", colnames(shiny_schiz))
-male_cols <- cats$col[grepl("(male", cats$cat, fixed = TRUE) |
-                        grepl("(male", cats$col, fixed = TRUE)]
-female_cols <- cats$col[grepl("(female", cats$cat, fixed = TRUE) |
-                          grepl("(female", cats$col, fixed = TRUE)]
+male_names <- Reduce(union,
+                    list(
+                      grep("(male", cats$col, fixed = TRUE, value = TRUE),
+                      cats$col[grepl("(male", cats$cat, fixed = TRUE)],
+                      grep("(male", cats$cat, fixed = TRUE, value = TRUE)
+                    ))
+female_names <- Reduce(union,
+                      list(
+                        grep("(female", cats$col, fixed = TRUE, value = TRUE),
+                        cats$col[grepl("(female", cats$cat, fixed = TRUE)],
+                        grep("(female", cats$cat, fixed = TRUE, value = TRUE)
+                      ))
 
 # round all numeric columns to 2 decimal places
 
@@ -69,6 +77,11 @@ rowCallback <- c(
   "  })",
   "}"
 )
+
+# make a function to clean strings for use as element ids
+idEscape <- function(x) {
+  gsub("[^a-zA-Z0-9_]", "-", x)
+}
 
 # server.R ----
 server <- function(input, output, session) {
@@ -111,20 +124,20 @@ server <- function(input, output, session) {
   }, ignoreNULL = FALSE, ignoreInit = TRUE)
   
   # update male/female filters and columns when sex is changed
-  observeEvent(input$sex, {
-    sapply(male_cols, show)
-    sapply(female_cols, show)
-    if (!is.null(input$sex)) {
-      if (! "male" %in% input$sex) {
-        sapply(male_cols, hide)
+  observeEvent(input$Sex, {
+    sapply(idEscape(male_names), showElement)
+    sapply(idEscape(female_names), showElement)
+    if (!is.null(input$Sex)) {
+      if (! "male" %in% input$Sex) {
+        sapply(idEscape(male_names), hideElement)
         hideCols(dataTableProxy('table'),
-                 unname(sapply(male_cols,
+                 unname(sapply(male_names,
                                function(x) which(x == colnames(data)) - 1)))
       }
-      if (! "female" %in% input$sex) {
-        sapply(female_cols, hide)
+      if (! "female" %in% input$Sex) {
+        sapply(idEscape(female_names), hideElement)
         hideCols(dataTableProxy('table'),
-                 unname(sapply(female_cols,
+                 unname(sapply(female_names,
                                function(x) which(x == colnames(data)) - 1)))
       }
     }
@@ -170,21 +183,31 @@ server <- function(input, output, session) {
 ui <- {
   fluidPage(
     useShinyjs(),
-    tags$head(tags$style("#genus option, #genus + div, #species option, #species + div {
-      font-style: italic;
-    }")),
+    tags$head(tags$style(
+      HTML(
+        "#genus option, #genus + div, #species option, #species + div {
+           font-style: italic;
+         }
+         .dataTables_wrapper {
+           padding-right: 10px;
+         }
+         div.col-sm-6:has(> div.form-group[style*='display: none']) {
+           display: none;
+         }"
+      )
+    )),
     titlePanel('Schizomid Trait Database'),
     sidebarLayout(sidebarPanel(fluidRow(
       tabsetPanel(
         tabPanel(
           "Taxonomy and Sex",
-          lapply(cats$col[cats$tab == 1], function(x) {
+          fluidRow(column(12, h4(""))), # add a little spacing
+          fluidRow(lapply(cats$col[cats$tab == 1], function(col) {
             column(4,
-                   selectInput(inputId = x, label = x,
-                               choices = sort(unique(as.character(shiny_schiz[[x]]))),
-                               multiple = TRUE)
-            )
-          })
+                   selectInput(inputId = idEscape(col), label = col,
+                               choices = sort(unique(as.character(shiny_schiz[[col]]))),
+                               multiple = TRUE))
+          }))
         ),
         tabPanel(
           "Prosoma",
@@ -192,30 +215,22 @@ ui <- {
             list(fluidRow(column(12, h4(cat))),
                  fluidRow(lapply(cats$col[cats$cat == cat], function(col) {
                    column(6,
-                          selectInput(inputId = col, label = col,
+                          selectInput(inputId = idEscape(col), label = col,
                                       choices = sort(unique(as.character(shiny_schiz[[col]]))),
-                                      multiple = TRUE)
-                   )
-                 })
-                 
-                 )
-            )
+                                      multiple = TRUE))
+                 })))
           })
         ),
         tabPanel(
           "Opisthosoma",
           lapply(unique(cats$cat[cats$tab == 3]), function(cat) {
-            list(fluidRow(column(12, h4(cat))),
+            list(fluidRow(column(12, h4(cat, id = idEscape(cat)))),
                  fluidRow(lapply(cats$col[cats$cat == cat], function(col) {
                    column(6,
-                          selectInput(inputId = col, label = col,
+                          selectInput(inputId = idEscape(col), label = col,
                                       choices = sort(unique(as.character(shiny_schiz[[col]]))),
-                                      multiple = TRUE)
-                   )
-                 })
-                 
-                 )
-            )
+                                      multiple = TRUE))
+                 })))
           })
         ),
         tabPanel(
@@ -224,14 +239,10 @@ ui <- {
             list(fluidRow(column(12, h4(cat))),
                  fluidRow(lapply(cats$col[cats$cat == cat], function(col) {
                    column(6,
-                          selectInput(inputId = col, label = col,
+                          selectInput(inputId = idEscape(col), label = col,
                                       choices = sort(unique(as.character(shiny_schiz[[col]]))),
-                                      multiple = TRUE)
-                   )
-                 })
-                 
-                 )
-            )
+                                      multiple = TRUE))
+                 })))
           })
         ),
         tabPanel(
@@ -240,19 +251,16 @@ ui <- {
             list(fluidRow(column(12, h4(cat))),
                  fluidRow(lapply(cats$col[cats$cat == cat], function(col) {
                    column(6,
-                          selectInput(inputId = col, label = col,
+                          selectInput(inputId = idEscape(col), label = col,
                                       choices = sort(unique(as.character(shiny_schiz[[col]]))),
-                                      multiple = TRUE)
-                   )
-                 })
-                 
-                 )
-            )
+                                      multiple = TRUE))
+                 })))
           })
         )
       )
-    ),),
-    mainPanel(fluidRow(DT::dataTableOutput('table')))))
+    )),
+    mainPanel(fluidRow(DT::dataTableOutput('table'))))
+  )
 }
 
 # Run shiny ----
