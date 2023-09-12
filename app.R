@@ -185,7 +185,7 @@ ui <- {
     useShinyjs(),
     tags$head(tags$style(
       HTML(
-        "#genus option, #genus + div, #species option, #species + div {
+        "#Genus option, #Genus + div, #Species option, #Species + div {
            font-style: italic;
          }
          .dataTables_wrapper {
@@ -193,6 +193,12 @@ ui <- {
          }
          div.col-sm-6:has(> div.form-group[style*='display: none']) {
            display: none;
+         }
+         .dataTables_filter {
+           float: right;
+         }
+         h4 {
+           font-style: italic;
          }"
       )
     )),
