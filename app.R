@@ -13,16 +13,17 @@ library(janitor)
 library(htmltools)
 
 # load data ----
-shiny_schiz <- read.xlsx('data/All schizomid species 13.1.xlsx',
-                         sheet = 'All schizomid species new',
-                         fillMergedCells = TRUE)
+shiny_schiz_orig <- read.xlsx('data/All schizomid species 13.1.xlsx',
+                              sheet = 'All schizomid species new',
+                              fillMergedCells = TRUE)
 
 # make a function to clean strings for use as element ids
 idEscape <- function(x) {
   gsub("[^a-zA-Z0-9_]", "-", x)
 }
 
-cols <- data.frame(cat = colnames(shiny_schiz), col = as.character(shiny_schiz[1, ])) %>%
+cols <- data.frame(cat = colnames(shiny_schiz_orig),
+                   col = as.character(shiny_schiz_orig[1, ])) %>%
   mutate(cat = gsub(".", " ", cat, fixed = TRUE)) %>%
   mutate(tab = case_when(
     cat %in% c("Family", "Subfamily", "Genus", "Species", "Sex") ~ 1, # Taxonomy and Sex
@@ -33,7 +34,7 @@ cols <- data.frame(cat = colnames(shiny_schiz), col = as.character(shiny_schiz[1
   )) %>%
   mutate(col_clean = idEscape(col)) # replace special characters with dashes
 
-shiny_schiz <- shiny_schiz %>%
+shiny_schiz <- shiny_schiz_orig %>%
   row_to_names(1) %>%
   arrange(Family, Subfamily, Genus, Species, Sex) %>%
   mutate(across(where(is.character), ~na_if(., "")))
@@ -86,6 +87,11 @@ rowCallback <- c(
 
 # server.R ----
 server <- function(input, output, session) {
+  # reset all filters if button is pressed
+  observeEvent(input$reset_input, {
+    reset("side-panel")
+  })
+  
   # update subfamily if family is changed
   observeEvent(list(input$Family), {
     dat <- shiny_schiz
@@ -168,14 +174,24 @@ server <- function(input, output, session) {
     paging = FALSE,
     dom = 'Bfrti',
     buttons = list(
-      list(extend = "copy", exportOptions = list(columns = ":visible")),
-      list(extend = "csv", exportOptions = list(columns = ":visible")),
-      list(extend = "excel", exportOptions = list(columns = ":visible"))
+      list(extend = "copy", text = "Copy Table", exportOptions = list(columns = ":visible")),
+      list(extend = "csv", text = HTML("<i class='fas fa-download'></i> CSV"),
+           exportOptions = list(columns = ":visible")),
+      list(extend = "excel", text = HTML("<i class='fas fa-download'></i> Excel"),
+           exportOptions = list(columns = ":visible"))
     ),
     rowCallback = JS(rowCallback) # formatting NAs
   )) %>%
     formatStyle('Genus', fontStyle = "italic") %>%
     formatStyle('Species', fontStyle = "italic"))
+  
+  # setup blank sheet for download
+  output$downloadData <- downloadHandler(
+    filename = 'empty-schizomida.xlsx',
+    content = function(con) {
+      write.xlsx(shiny_schiz_orig[1,], con)
+    }
+  )
 }
 
 # ui.R ----
@@ -264,7 +280,11 @@ ui <- {
           })
         )
       )
-    )),
+    ),
+    fluidRow(actionButton("reset_input", "Reset all filters"),
+             downloadButton("downloadData", "Download blank excel sheet")),
+    id = "side-panel",
+    ),
     mainPanel(fluidRow(DT::dataTableOutput('table'))))
   )
 }
