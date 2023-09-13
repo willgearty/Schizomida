@@ -87,10 +87,43 @@ rowCallback <- c(
 
 # server.R ----
 server <- function(input, output, session) {
+  data <- shiny_schiz # set the scope of this variable
+  
   # reset all filters if button is pressed
   observeEvent(input$reset_input, {
     reset("side-panel")
+    runjs("$('input[type=checkbox]').prop('checked', true).trigger('change')")
   })
+  
+  # monitor checkboxes and show/hide specified columns
+  observeEvent(
+    lapply(
+      names(input)[grep("checkbox", names(input))],
+      function(name) {
+        input[[name]]
+      }
+    ),
+    {
+      show_cols <- c()
+      hide_cols <- c()
+      for(name in names(input)[grep("-checkbox", names(input), fixed = TRUE)]) {
+        # convert to unclean name
+        name_unclean <- cols$col[match(gsub("-checkbox", "", name), cols$col_clean)]
+        if(input[[name]]) {
+          show_cols <- c(show_cols, name_unclean)
+        } else {
+          hide_cols <- c(hide_cols, name_unclean)
+        }
+      }
+      showCols(dataTableProxy('table'),
+               unname(sapply(show_cols,
+                             function(x) which(x == colnames(data)) - 1)))
+      hideCols(dataTableProxy('table'),
+               unname(sapply(hide_cols,
+                             function(x) which(x == colnames(data)) - 1)))
+    },
+    ignoreInit = TRUE
+  )
   
   # update subfamily if family is changed
   observeEvent(list(input$Family), {
@@ -150,7 +183,6 @@ server <- function(input, output, session) {
     }
   }, ignoreNULL = FALSE)
   
-  data <- shiny_schiz # set the scope of this variable
   # lots of options available: https://datatables.net/reference/option/
   output$table <- DT::renderDataTable(DT::datatable({
     data <- shiny_schiz
@@ -226,7 +258,11 @@ ui <- {
           fluidRow(column(12, h4(""))), # add a little spacing
           fluidRow(apply(cols %>% filter(tab == 1), 1, function(row) {
             column(4,
-                   selectInput(inputId = row["col_clean"], label = row["col"],
+                   selectInput(inputId = row["col_clean"],
+                               label = HTML(paste0(row["col"],
+                                                   " <input type = 'checkbox' checked id = ",
+                                                   "'", row["col_clean"], "-checkbox' ",
+                                                   "title = 'show/hide this column'>")),
                                choices = sort(unique(as.character(shiny_schiz[[row["col"]]]))),
                                multiple = TRUE))
           }))
@@ -237,7 +273,11 @@ ui <- {
             list(fluidRow(column(12, h4(cat_name))),
                  fluidRow(apply(cols %>% filter(cat == cat_name), 1, function(row) {
                    column(6,
-                          selectInput(inputId = row["col_clean"], label = row["col"],
+                          selectInput(inputId = row["col_clean"],
+                                      label = HTML(paste0(row["col"],
+                                                          " <input type = 'checkbox' checked id = ",
+                                                          "'", row["col_clean"], "-checkbox' ",
+                                                          "title = 'show/hide this column'>")),
                                       choices = sort(unique(as.character(shiny_schiz[[row["col"]]]))),
                                       multiple = TRUE))
                  })))
@@ -249,7 +289,11 @@ ui <- {
             list(fluidRow(column(12, h4(cat_name, id = idEscape(cat_name)))),
                  fluidRow(apply(cols %>% filter(cat == cat_name), 1, function(row) {
                    column(6,
-                          selectInput(inputId = row["col_clean"], label = row["col"],
+                          selectInput(inputId = row["col_clean"],
+                                      label = HTML(paste0(row["col"],
+                                                          " <input type = 'checkbox' checked id = ",
+                                                          "'", row["col_clean"], "-checkbox' ",
+                                                          "title = 'show/hide this column'>")),
                                       choices = sort(unique(as.character(shiny_schiz[[row["col"]]]))),
                                       multiple = TRUE))
                  })))
@@ -261,7 +305,11 @@ ui <- {
             list(fluidRow(column(12, h4(cat_name))),
                  fluidRow(apply(cols %>% filter(cat == cat_name), 1, function(row) {
                    column(6,
-                          selectInput(inputId = row["col_clean"], label = row["col"],
+                          selectInput(inputId = row["col_clean"],
+                                      label = HTML(paste0(row["col"],
+                                                          " <input type = 'checkbox' checked id = ",
+                                                          "'", row["col_clean"], "-checkbox' ",
+                                                          "title = 'show/hide this column'>")),
                                       choices = sort(unique(as.character(shiny_schiz[[row["col"]]]))),
                                       multiple = TRUE))
                  })))
@@ -273,7 +321,11 @@ ui <- {
             list(fluidRow(column(12, h4(cat_name))),
                  fluidRow(apply(cols %>% filter(cat == cat_name), 1, function(row) {
                    column(6,
-                          selectInput(inputId = row["col_clean"], label = row["col"],
+                          selectInput(inputId = row["col_clean"],
+                                      label = HTML(paste0(row["col"],
+                                                          " <input type = 'checkbox' checked id = ",
+                                                          "'", row["col_clean"], "-checkbox' ",
+                                                          "title = 'show/hide this column'>")),
                                       choices = sort(unique(as.character(shiny_schiz[[row["col"]]]))),
                                       multiple = TRUE))
                  })))
