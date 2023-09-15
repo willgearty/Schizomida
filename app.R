@@ -221,7 +221,17 @@ server <- function(input, output, session) {
   output$downloadData <- downloadHandler(
     filename = 'empty-schizomida.xlsx',
     content = function(con) {
-      write.xlsx(shiny_schiz_orig[1,], con)
+      # build workbook, merge cells, then write
+      wb <- buildWorkbook(as.data.frame(t(cols[,1:2])), colNames = FALSE)
+      for (col in double_row) {
+        mergeCells(wb, 1, cols = col, rows = 1:2)
+      }
+      i <- double_row[length(double_row)] + 1
+      for (n in col_width) {
+        mergeCells(wb, 1, cols = i:(i + n - 1), rows = 1)
+        i <- i + n
+      }
+      saveWorkbook(wb, con)
     }
   )
 }
