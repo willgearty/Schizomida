@@ -89,6 +89,26 @@ rowCallback <- c(
 server <- function(input, output, session) {
   data <- shiny_schiz # set the scope of this variable
   
+  update_cols <- function(input) {
+    show_cols <- c()
+    hide_cols <- c()
+    for(name in names(input)[grep("-checkbox", names(input), fixed = TRUE)]) {
+      # convert to unclean name
+      name_unclean <- cols$col[match(gsub("-checkbox", "", name), cols$col_clean)]
+      if(input[[name]]) {
+        show_cols <- c(show_cols, name_unclean)
+      } else {
+        hide_cols <- c(hide_cols, name_unclean)
+      }
+    }
+    showCols(dataTableProxy('table'),
+             unname(sapply(show_cols,
+                           function(x) which(x == colnames(data)) - 1)))
+    hideCols(dataTableProxy('table'),
+             unname(sapply(hide_cols,
+                           function(x) which(x == colnames(data)) - 1)))
+  }
+  
   # reset all filters if button is pressed
   observeEvent(input$reset_input, {
     reset("side-panel")
@@ -104,23 +124,7 @@ server <- function(input, output, session) {
       }
     ),
     {
-      show_cols <- c()
-      hide_cols <- c()
-      for(name in names(input)[grep("-checkbox", names(input), fixed = TRUE)]) {
-        # convert to unclean name
-        name_unclean <- cols$col[match(gsub("-checkbox", "", name), cols$col_clean)]
-        if(input[[name]]) {
-          show_cols <- c(show_cols, name_unclean)
-        } else {
-          hide_cols <- c(hide_cols, name_unclean)
-        }
-      }
-      showCols(dataTableProxy('table'),
-               unname(sapply(show_cols,
-                             function(x) which(x == colnames(data)) - 1)))
-      hideCols(dataTableProxy('table'),
-               unname(sapply(hide_cols,
-                             function(x) which(x == colnames(data)) - 1)))
+      update_cols(input)
     },
     ignoreInit = TRUE
   )
@@ -193,6 +197,7 @@ server <- function(input, output, session) {
           filter(!!as.symbol(cols$col[i]) %in% input_value)
       }
     }
+    update_cols(input)
     data
   },
   container = tab_layout,
