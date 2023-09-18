@@ -129,6 +129,32 @@ server <- function(input, output, session) {
     ignoreInit = TRUE
   )
   
+  js_export <- function(format = 'xlsx') {
+    paste0("
+    var $table = $('.dataTables_scrollBody table');
+    var instance = $table.tableExport({
+      formats: ['", format, "'],
+      exportButtons: false,
+      filename: 'schizomida',
+      sheetname: 'Sheet1'
+    });
+    var exportData0 = instance.getExportData();
+    var exportData = exportData0[Object.keys(exportData0)[0]]['", format, "'];
+    instance.export2file(exportData.data, exportData.mimeType, exportData.filename, 
+                         exportData.fileExtension, exportData.merges, 
+                         exportData.RTL, exportData.sheetname);
+    ")
+  }
+  # trigger excel file download
+  observeEvent(input$downloadExcel, {
+    runjs(js_export())
+  })
+  
+  # trigger csv file download
+  observeEvent(input$downloadCSV, {
+    runjs(js_export("csv"))
+  })
+  
   # update subfamily if family is changed
   observeEvent(list(input$Family), {
     dat <- shiny_schiz
@@ -211,11 +237,17 @@ server <- function(input, output, session) {
     paging = FALSE,
     dom = 'Bfrti',
     buttons = list(
-      list(extend = "copy", text = "Copy Table", exportOptions = list(columns = ":visible")),
-      list(extend = "csv", text = HTML("<i class='fas fa-download'></i> CSV"),
-           exportOptions = list(columns = ":visible")),
-      list(extend = "excel", text = HTML("<i class='fas fa-download'></i> Excel"),
-           exportOptions = list(columns = ":visible"))
+      list(extend = "copy", text = "<i class='fa-regular fa-clipboard'></i> Copy", exportOptions = list(columns = ":visible")),
+      list(extend = "collection", text = "<i class='fa-solid fa-download'></i> CSV",
+           action = JS("function ( e, dt, node, config ) {
+                               Shiny.setInputValue('downloadCSV', true, {priority: 'event'});
+                             }")
+      ),
+      list(extend = "collection", text = "<i class='fa-solid fa-download'></i> Excel",
+        action = JS("function ( e, dt, node, config ) {
+                               Shiny.setInputValue('downloadExcel', true, {priority: 'event'});
+                             }")
+      )
     ),
     rowCallback = JS(rowCallback) # formatting NAs
   )) %>%
@@ -223,9 +255,9 @@ server <- function(input, output, session) {
     formatStyle('Species', fontStyle = "italic"))
   
   # setup blank sheet for download
-  output$downloadData <- downloadHandler(
+  output$downloadBlank <- downloadHandler(
     filename = 'empty-schizomida.xlsx',
-    content = function(con) {
+    content = function(file) {
       # build workbook, merge cells, then write
       wb <- buildWorkbook(as.data.frame(t(cols[,1:2])), colNames = FALSE)
       for (col in double_row) {
@@ -236,7 +268,7 @@ server <- function(input, output, session) {
         mergeCells(wb, 1, cols = i:(i + n - 1), rows = 1)
         i <- i + n
       }
-      saveWorkbook(wb, con)
+      saveWorkbook(wb, file)
     }
   )
 }
@@ -246,9 +278,10 @@ server <- function(input, output, session) {
 ui <- {
   fluidPage(
     useShinyjs(),
-    tags$head(tags$style(
-      HTML(
-        "#Genus option, #Genus + div, #Species option, #Species + div {
+    tags$head(
+      tags$style(
+        HTML(
+          "#Genus option, #Genus + div, #Species option, #Species + div {
            font-style: italic;
          }
          .dataTables_wrapper {
@@ -263,8 +296,12 @@ ui <- {
          h4 {
            font-style: italic;
          }"
-      )
-    )),
+        ),
+      ),
+      tags$script(src = "xlsx.core.min.js"),
+      tags$script(src = "FileSaver.min.js"),
+      tags$script(src = "tableexport.min.js")
+    ),
     titlePanel('Schizomid Trait Database'),
     sidebarLayout(sidebarPanel(fluidRow(
       tabsetPanel(
@@ -348,8 +385,8 @@ ui <- {
         )
       )
     ),
-    fluidRow(actionButton("reset_input", "Reset all filters"),
-             downloadButton("downloadData", "Download blank excel sheet")),
+    fluidRow(actionButton("reset_input", HTML("<i class='fa-solid fa-rotate'></i> Reset all filters")),
+             downloadButton("downloadBlank", "Download blank Excel sheet")),
     id = "side-panel",
     ),
     mainPanel(fluidRow(DT::dataTableOutput('table'))))
