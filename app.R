@@ -13,10 +13,17 @@ library(janitor)
 library(htmltools)
 
 # load data ----
-shiny_schiz_orig <- read.xlsx('data/All schizomid species 13.1.xlsx',
-                              sheet = 'All schizomid species new',
+shiny_schiz_orig <- read.xlsx('data/STDB_data.xlsx',
+                              sheet = 'STDB',
                               fillMergedCells = TRUE)
 
+taxonomy_syn <- read.xlsx('data/STDB_data.xlsx',
+                          sheet = 'Species description history')
+
+# convert docx to filtered html, then convert to UTF-8
+references_html <- includeHTML("data/STDB_references.htm")
+
+# clean data ----
 # make a function to clean strings for use as element ids
 idEscape <- function(x) {
   gsub("[^a-zA-Z0-9_]", "-", x)
@@ -54,6 +61,7 @@ female_names <- Reduce(union,
 
 # round all numeric columns to 2 decimal places
 
+# table layout and formatting ----
 # generate table layout
 double_row <- which(cols$cat == cols$col)
 col_width <- table(cols$cat)[unique(cols$cat[-double_row])]
@@ -89,6 +97,7 @@ rowCallback <- c(
 server <- function(input, output, session) {
   data <- shiny_schiz # set the scope of this variable
   
+  # observers ----
   update_cols <- function(input) {
     show_cols <- c()
     hide_cols <- c()
@@ -213,6 +222,7 @@ server <- function(input, output, session) {
     }
   }, ignoreNULL = FALSE)
   
+  # data table ----
   # lots of options available: https://datatables.net/reference/option/
   output$table <- DT::renderDataTable(DT::datatable({
     data <- shiny_schiz
@@ -232,7 +242,7 @@ server <- function(input, output, session) {
   extensions = 'Buttons',
   options = list(
     scrollX = TRUE,
-    scrollY = "600px",
+    scrollY = TRUE,
     scrollCollapse = TRUE,
     paging = FALSE,
     dom = 'Bfrti',
@@ -244,7 +254,7 @@ server <- function(input, output, session) {
                              }")
       ),
       list(extend = "collection", text = "<i class='fa-solid fa-download'></i> Excel",
-        action = JS("function ( e, dt, node, config ) {
+           action = JS("function ( e, dt, node, config ) {
                                Shiny.setInputValue('downloadExcel', true, {priority: 'event'});
                              }")
       )
@@ -254,7 +264,38 @@ server <- function(input, output, session) {
     formatStyle('Genus', fontStyle = "italic") %>%
     formatStyle('Species', fontStyle = "italic"))
   
-  # setup blank sheet for download
+  # tax. and syn. table ----
+  output$table2 <- DT::renderDataTable(DT::datatable({
+    taxonomy_syn
+  },
+  rownames = FALSE,
+  style = 'bootstrap', class = 'table-bordered',
+  extensions = 'Buttons',
+  options = list(
+    scrollX = TRUE,
+    scrollY = TRUE,
+    scrollCollapse = TRUE,
+    paging = FALSE,
+    dom = 'Bfrti',
+    buttons = list(
+      list(extend = "copy", text = "<i class='fa-regular fa-clipboard'></i> Copy", exportOptions = list(columns = ":visible")),
+      list(extend = "collection", text = "<i class='fa-solid fa-download'></i> CSV",
+           action = JS("function ( e, dt, node, config ) {
+                               Shiny.setInputValue('downloadCSV', true, {priority: 'event'});
+                             }")
+      ),
+      list(extend = "collection", text = "<i class='fa-solid fa-download'></i> Excel",
+           action = JS("function ( e, dt, node, config ) {
+                               Shiny.setInputValue('downloadExcel', true, {priority: 'event'});
+                             }")
+      )
+    ),
+    rowCallback = JS(rowCallback) # formatting NAs
+  )) %>%
+    formatStyle('Genus', fontStyle = "italic") %>%
+    formatStyle('Species', fontStyle = "italic"))
+  
+  # blank download ----
   output$downloadBlank <- downloadHandler(
     filename = 'empty-schizomida.xlsx',
     content = function(file) {
@@ -295,6 +336,10 @@ ui <- {
          }
          h4 {
            font-style: italic;
+         }
+         .dataTables_scrollBody {
+           max-height: 62vh;
+           max-height: 62dvh;
          }"
         ),
       ),
@@ -389,7 +434,25 @@ ui <- {
              downloadButton("downloadBlank", "Download blank Excel sheet")),
     id = "side-panel",
     ),
-    mainPanel(fluidRow(DT::dataTableOutput('table'))))
+    mainPanel(
+      tabsetPanel(
+        tabPanel(
+          "Database",
+          fluidRow(column(12, h4(""))),
+          fluidRow(DT::dataTableOutput('table'))
+        ),
+        tabPanel(
+          "Taxonomy and Synonyms",
+          fluidRow(column(12, h4(""))),
+          fluidRow(DT::dataTableOutput('table2'))
+        ),
+        tabPanel(
+          "Full References",
+          fluidRow(column(12, h4(""))),
+          div(references_html, style = "overflow-y: scroll; height: calc(100vh - 120px); height: calc(100dvh - 120px);")
+        )
+      )
+    ))
   )
 }
 
