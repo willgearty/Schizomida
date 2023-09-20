@@ -19,6 +19,7 @@ shiny_schiz_orig <- read.xlsx('data/STDB_data.xlsx',
 
 taxonomy_syn <- read.xlsx('data/STDB_data.xlsx',
                           sheet = 'Species description history')
+colnames(taxonomy_syn) <- gsub(".", " ", colnames(taxonomy_syn), fixed = TRUE)
 
 # convert docx to filtered html, then convert to UTF-8
 references_html <- includeHTML("data/STDB_references.htm")
@@ -37,6 +38,7 @@ cols <- data.frame(cat = colnames(shiny_schiz_orig),
     cat %in% c("Opisthosoma", "Spermathecae (females)", "Flagellum") ~ 3, # Opisthosoma
     cat %in% c("Size", "Legs") ~ 4, # Legs and Size
     cat %in% c("Ecology", "Distribution") ~ 5,
+    grepl("References", cat) ~ 6,
     .default = 2 # Prosoma
   )) %>%
   mutate(col_clean = idEscape(col)) # replace special characters with dashes
@@ -63,16 +65,18 @@ female_names <- Reduce(union,
 
 # table layout and formatting ----
 # generate table layout
+ref_col <- grep("References", cols$cat)
 double_row <- which(cols$cat == cols$col)
 col_width <- table(cols$cat)[unique(cols$cat[-double_row])]
 tab_layout <- withTags(table(
   class = 'display',
   thead(
     tr(
-      lapply(cols$cat[double_row], th, rowspan = 2),
+      lapply(cols$cat[double_row[double_row != ref_col]], th, rowspan = 2),
       lapply(seq_along(col_width), function(i) {
         th(names(col_width)[i], colspan = col_width[i])
-      })
+      }),
+      th(cols$cat[ref_col], rowspan = 2)
     ),
     tr(
       lapply(cols$col[-double_row], th)
@@ -346,6 +350,12 @@ ui <- {
          }
          .tableexport-caption {
            display: none;
+         }
+         #side-panel .tab-content {
+           max-height: 75vh;
+           max-height: 75dvh;
+           overflow-y: auto;
+           overflow-x: hidden;
          }"
         ),
       ),
@@ -438,7 +448,7 @@ ui <- {
     ),
     fluidRow(actionButton("reset_input", HTML("<i class='fa-solid fa-rotate'></i> Reset all filters")),
              downloadButton("downloadBlank", "Download blank Excel sheet")),
-    id = "side-panel",
+    id = "side-panel"
     ),
     mainPanel(
       tabsetPanel(
