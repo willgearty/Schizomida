@@ -140,18 +140,21 @@ server <- function(input, output, session) {
   
   js_export <- function(format = 'xlsx') {
     paste0("
-    var $table = $('.dataTables_scrollBody table');
+    $('.buttons-collection').prop('disabled', true);
+    var $table = $('.dataTables_scrollBody table:visible');
     var instance = $table.tableExport({
       formats: ['", format, "'],
-      exportButtons: false,
       filename: 'schizomida',
       sheetname: 'Sheet1'
     });
-    var exportData0 = instance.getExportData();
-    var exportData = exportData0[Object.keys(exportData0)[0]]['", format, "'];
-    instance.export2file(exportData.data, exportData.mimeType, exportData.filename, 
-                         exportData.fileExtension, exportData.merges, 
-                         exportData.RTL, exportData.sheetname);
+    $('.export-type-", format, "').click();
+    $('.tableexport-caption').remove();
+    // var exportData0 = instance.getExportData();
+    // var exportData = exportData0[Object.keys(exportData0)[0]]['", format, "'];
+    // instance.export2file(exportData.data, exportData.mimeType, exportData.filename, 
+    //                      exportData.fileExtension, exportData.merges, 
+    //                      exportData.RTL, exportData.sheetname);
+    $('.buttons-collection').prop('disabled', false);
     ")
   }
   # trigger excel file download
@@ -340,6 +343,9 @@ ui <- {
          .dataTables_scrollBody {
            max-height: 62vh;
            max-height: 62dvh;
+         }
+         .tableexport-caption {
+           display: none;
          }"
         ),
       ),
