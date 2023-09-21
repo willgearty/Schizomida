@@ -5,7 +5,6 @@
 # relevant packages ----
 library(shiny)
 library(shinyjs)
-library(ggplot2)
 library(dplyr)
 library(openxlsx)
 library(DT)
@@ -352,8 +351,8 @@ ui <- {
            display: none;
          }
          #side-panel .tab-content {
-           max-height: 75vh;
-           max-height: 75dvh;
+           height: 75vh;
+           height: 75dvh;
            overflow-y: auto;
            overflow-x: hidden;
          }"
