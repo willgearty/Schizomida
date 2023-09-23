@@ -10,6 +10,8 @@ library(openxlsx)
 library(DT)
 library(janitor)
 library(htmltools)
+library(fontawesome)
+library(prompter)
 
 # load data ----
 shiny_schiz_orig <- read.xlsx('data/STDB_data.xlsx',
@@ -48,17 +50,17 @@ shiny_schiz <- shiny_schiz_orig %>%
   mutate(across(where(is.character), ~na_if(., "")))
 
 male_names <- Reduce(union,
-                    list(
-                      grep("(male", cols$col, fixed = TRUE, value = TRUE),
-                      cols$col[grepl("(male", cols$cat, fixed = TRUE)],
-                      grep("(male", cols$cat, fixed = TRUE, value = TRUE)
-                    ))
+                     list(
+                       grep("(male", cols$col, fixed = TRUE, value = TRUE),
+                       cols$col[grepl("(male", cols$cat, fixed = TRUE)],
+                       grep("(male", cols$cat, fixed = TRUE, value = TRUE)
+                     ))
 female_names <- Reduce(union,
-                      list(
-                        grep("(female", cols$col, fixed = TRUE, value = TRUE),
-                        cols$col[grepl("(female", cols$cat, fixed = TRUE)],
-                        grep("(female", cols$cat, fixed = TRUE, value = TRUE)
-                      ))
+                       list(
+                         grep("(female", cols$col, fixed = TRUE, value = TRUE),
+                         cols$col[grepl("(female", cols$cat, fixed = TRUE)],
+                         grep("(female", cols$cat, fixed = TRUE, value = TRUE)
+                       ))
 
 # round all numeric columns to 2 decimal places
 
@@ -99,6 +101,7 @@ rowCallback <- c(
 # server.R ----
 server <- function(input, output, session) {
   data <- shiny_schiz # set the scope of this variable
+  proxy1 <- dataTableProxy('table1')
   
   # observers ----
   update_cols <- function(input) {
@@ -113,10 +116,10 @@ server <- function(input, output, session) {
         hide_cols <- c(hide_cols, name_unclean)
       }
     }
-    showCols(dataTableProxy('table'),
+    showCols(proxy1,
              unname(sapply(show_cols,
                            function(x) which(x == colnames(data)) - 1)))
-    hideCols(dataTableProxy('table'),
+    hideCols(proxy1,
              unname(sapply(hide_cols,
                            function(x) which(x == colnames(data)) - 1)))
   }
@@ -141,14 +144,16 @@ server <- function(input, output, session) {
     ignoreInit = TRUE
   )
   
-  js_export <- function(format = 'xlsx') {
+  js_export <- function(format = 'xlsx', empty = FALSE) {
     paste0("
     $('.buttons-collection').prop('disabled', true);
     var $table = $('.dataTables_scrollBody table:visible');
+    var nrows = $table.find('tbody tr').length;
     var instance = $table.tableExport({
       formats: ['", format, "'],
-      filename: 'schizomida',
-      sheetname: 'Sheet1'
+      filename: 'schizomida", ifelse(empty, "_empty", ""), "',
+      sheetname: 'Sheet1',
+      ignoreRows: ", ifelse(empty, "Array(nrows).fill().map((v,i)=>i)", "null"), "
     });
     $('.export-type-", format, "').click();
     $('.tableexport-caption').remove();
@@ -168,6 +173,11 @@ server <- function(input, output, session) {
   # trigger csv file download
   observeEvent(input$downloadCSV, {
     runjs(js_export("csv"))
+  })
+  
+  # trigger empty excel file download
+  observeEvent(input$downloadEmptyExcel, {
+    runjs(js_export(empty = TRUE))
   })
   
   # update subfamily if family is changed
@@ -208,29 +218,23 @@ server <- function(input, output, session) {
     updateSelectInput(inputId = "Sex", choices = choices)
   }, ignoreNULL = FALSE, ignoreInit = TRUE)
   
-  # update male/female filters and columns when sex is changed
+  # update male/female filters when sex is changed
   observeEvent(input$Sex, {
     sapply(idEscape(male_names), showElement)
     sapply(idEscape(female_names), showElement)
     if (!is.null(input$Sex)) {
       if (! "male" %in% input$Sex) {
         sapply(idEscape(male_names), hideElement)
-        hideCols(dataTableProxy('table'),
-                 unname(sapply(male_names,
-                               function(x) which(x == colnames(data)) - 1)))
       }
       if (! "female" %in% input$Sex) {
         sapply(idEscape(female_names), hideElement)
-        hideCols(dataTableProxy('table'),
-                 unname(sapply(female_names,
-                               function(x) which(x == colnames(data)) - 1)))
       }
     }
   }, ignoreNULL = FALSE)
   
   # data table ----
   # lots of options available: https://datatables.net/reference/option/
-  output$table <- DT::renderDataTable(DT::datatable({
+  output$table1 <- DT::renderDataTable(DT::datatable({
     data <- shiny_schiz
     for (i in seq_len(nrow(cols))) {
       input_value <- input[[cols$col_clean[i]]]
@@ -239,7 +243,21 @@ server <- function(input, output, session) {
           filter(!!as.symbol(cols$col[i]) %in% input_value)
       }
     }
+    # update columns based on checkboxes
     update_cols(input)
+    # update male/female columns based on sex filter
+    if (!is.null(input$Sex)) {
+      if (! "male" %in% input$Sex) {
+        hideCols(proxy1,
+                 unname(sapply(male_names,
+                               function(x) which(x == colnames(data)) - 1)))
+      }
+      if (! "female" %in% input$Sex) {
+        hideCols(proxy1,
+                 unname(sapply(female_names,
+                               function(x) which(x == colnames(data)) - 1)))
+      }
+    }
     data
   },
   container = tab_layout,
@@ -253,16 +271,30 @@ server <- function(input, output, session) {
     paging = FALSE,
     dom = 'Bfrti',
     buttons = list(
-      list(extend = "copy", text = "<i class='fa-regular fa-clipboard'></i> Copy", exportOptions = list(columns = ":visible")),
-      list(extend = "collection", text = "<i class='fa-solid fa-download'></i> CSV",
+      list(extend = "copy", text = paste(fa("clipboard"),  "Copy"),
+           exportOptions = list(columns = ":visible"),
+           className = "hint--bottom-right hint--rounded hint--info",
+           attr = list("aria-label" = "Copy the below table to the clipboard")),
+      list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "CSV"),
            action = JS("function ( e, dt, node, config ) {
                                Shiny.setInputValue('downloadCSV', true, {priority: 'event'});
-                             }")
+                             }"),
+           className = "hint--bottom-right hint--rounded hint--info",
+           attr = list("aria-label" = "Download a copy of the below table in CSV format")
       ),
-      list(extend = "collection", text = "<i class='fa-solid fa-download'></i> Excel",
+      list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "Excel"),
            action = JS("function ( e, dt, node, config ) {
                                Shiny.setInputValue('downloadExcel', true, {priority: 'event'});
-                             }")
+                             }"),
+           className = "hint--bottom-right hint--rounded hint--info",
+           attr = list("aria-label" = "Download a copy of the below table in Excel format")
+      ),
+      list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "Empty Excel"),
+           action = JS("function ( e, dt, node, config ) {
+                               Shiny.setInputValue('downloadEmptyExcel', true, {priority: 'event'});
+                             }"),
+           className = "hint--bottom-right hint--rounded hint--info",
+           attr = list("aria-label" = "Download an empty copy of the below table in Excel format (only colomn headers)")
       )
     ),
     rowCallback = JS(rowCallback) # formatting NAs
@@ -284,40 +316,29 @@ server <- function(input, output, session) {
     paging = FALSE,
     dom = 'Bfrti',
     buttons = list(
-      list(extend = "copy", text = "<i class='fa-regular fa-clipboard'></i> Copy", exportOptions = list(columns = ":visible")),
-      list(extend = "collection", text = "<i class='fa-solid fa-download'></i> CSV",
+      list(extend = "copy", text = paste(fa("clipboard"),  "Copy"),
+           exportOptions = list(columns = ":visible"),
+           className = "hint--bottom-right hint--rounded hint--info",
+           attr = list("aria-label" = "Copy the below table to the clipboard")),
+      list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "CSV"),
            action = JS("function ( e, dt, node, config ) {
                                Shiny.setInputValue('downloadCSV', true, {priority: 'event'});
-                             }")
+                             }"),
+           className = "hint--bottom-right hint--rounded hint--info",
+           attr = list("aria-label" = "Download a copy of the below table in CSV format")
       ),
-      list(extend = "collection", text = "<i class='fa-solid fa-download'></i> Excel",
+      list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "Excel"),
            action = JS("function ( e, dt, node, config ) {
                                Shiny.setInputValue('downloadExcel', true, {priority: 'event'});
-                             }")
+                             }"),
+           className = "hint--bottom-right hint--rounded hint--info",
+           attr = list("aria-label" = "Download a copy of the below table in Excel format")
       )
     ),
     rowCallback = JS(rowCallback) # formatting NAs
   )) %>%
     formatStyle('Genus', fontStyle = "italic") %>%
     formatStyle('Species', fontStyle = "italic"))
-  
-  # blank download ----
-  output$downloadBlank <- downloadHandler(
-    filename = 'empty-schizomida.xlsx',
-    content = function(file) {
-      # build workbook, merge cells, then write
-      wb <- buildWorkbook(as.data.frame(t(cols[,1:2])), colNames = FALSE)
-      for (col in double_row) {
-        mergeCells(wb, 1, cols = col, rows = 1:2)
-      }
-      i <- double_row[length(double_row)] + 1
-      for (n in col_width) {
-        mergeCells(wb, 1, cols = i:(i + n - 1), rows = 1)
-        i <- i + n
-      }
-      saveWorkbook(wb, file)
-    }
-  )
 }
 
 # ui.R ----
@@ -325,6 +346,7 @@ server <- function(input, output, session) {
 ui <- {
   fluidPage(
     useShinyjs(),
+    use_prompt(),
     tags$head(
       tags$style(
         HTML(
@@ -368,29 +390,36 @@ ui <- {
         tabPanel(
           "Taxonomy and Sex",
           fluidRow(column(12, h4(""))), # add a little spacing
-          fluidRow(apply(cols %>% filter(tab == 1), 1, function(row) {
+          fluidRow(lapply(seq_len(cols %>% filter(tab == 1) %>% nrow()), function(i) {
             column(4,
-                   selectInput(inputId = row["col_clean"],
-                               label = HTML(paste0(row["col"],
+                   selectInput(inputId = cols$col_clean[i],
+                               label = HTML(paste0(cols$col[i],
                                                    " <input type = 'checkbox' checked id = ",
-                                                   "'", row["col_clean"], "-checkbox' ",
-                                                   "title = 'show/hide this column'>")),
-                               choices = sort(unique(as.character(shiny_schiz[[row["col"]]]))),
+                                                   "'", cols$col_clean[i], "-checkbox' ",
+                                                   "aria-label = 'show/hide this column'",
+                                                   "class = '",
+                                                   ifelse((i %% 3) == 0, "hint--bottom-left", "hint--bottom-right"),
+                                                   " hint--rounded'>")),
+                               choices = sort(unique(as.character(shiny_schiz[[cols$col[i]]]))),
                                multiple = TRUE))
           }))
         ),
         tabPanel(
           "Prosoma",
           lapply(unique(cols$cat[cols$tab == 2]), function(cat_name) {
-            list(fluidRow(column(12, h4(cat_name))),
-                 fluidRow(apply(cols %>% filter(cat == cat_name), 1, function(row) {
+            cols_sub <- cols %>% filter(cat == cat_name)
+            list(fluidRow(column(12, h4(cat_name, id = idEscape(cat_name)))),
+                 fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
                    column(6,
-                          selectInput(inputId = row["col_clean"],
-                                      label = HTML(paste0(row["col"],
+                          selectInput(inputId = cols_sub$col_clean[i],
+                                      label = HTML(paste0(cols_sub$col[i],
                                                           " <input type = 'checkbox' checked id = ",
-                                                          "'", row["col_clean"], "-checkbox' ",
-                                                          "title = 'show/hide this column'>")),
-                                      choices = sort(unique(as.character(shiny_schiz[[row["col"]]]))),
+                                                          "'", cols_sub$col_clean[i], "-checkbox' ",
+                                                          "aria-label = 'show/hide this column'",
+                                                          "class = '",
+                                                          ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
+                                                          " hint--rounded'>")),
+                                      choices = sort(unique(as.character(shiny_schiz[[cols_sub$col[i]]]))),
                                       multiple = TRUE))
                  })))
           })
@@ -398,15 +427,19 @@ ui <- {
         tabPanel(
           "Opisthosoma",
           lapply(unique(cols$cat[cols$tab == 3]), function(cat_name) {
+            cols_sub <- cols %>% filter(cat == cat_name)
             list(fluidRow(column(12, h4(cat_name, id = idEscape(cat_name)))),
-                 fluidRow(apply(cols %>% filter(cat == cat_name), 1, function(row) {
+                 fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
                    column(6,
-                          selectInput(inputId = row["col_clean"],
-                                      label = HTML(paste0(row["col"],
+                          selectInput(inputId = cols_sub$col_clean[i],
+                                      label = HTML(paste0(cols_sub$col[i],
                                                           " <input type = 'checkbox' checked id = ",
-                                                          "'", row["col_clean"], "-checkbox' ",
-                                                          "title = 'show/hide this column'>")),
-                                      choices = sort(unique(as.character(shiny_schiz[[row["col"]]]))),
+                                                          "'", cols_sub$col_clean[i], "-checkbox' ",
+                                                          "aria-label = 'show/hide this column'",
+                                                          "class = '",
+                                                          ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
+                                                          " hint--rounded'>")),
+                                      choices = sort(unique(as.character(shiny_schiz[[cols_sub$col[i]]]))),
                                       multiple = TRUE))
                  })))
           })
@@ -414,15 +447,19 @@ ui <- {
         tabPanel(
           "Legs and Size",
           lapply(unique(cols$cat[cols$tab == 4]), function(cat_name) {
-            list(fluidRow(column(12, h4(cat_name))),
-                 fluidRow(apply(cols %>% filter(cat == cat_name), 1, function(row) {
+            cols_sub <- cols %>% filter(cat == cat_name)
+            list(fluidRow(column(12, h4(cat_name, id = idEscape(cat_name)))),
+                 fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
                    column(6,
-                          selectInput(inputId = row["col_clean"],
-                                      label = HTML(paste0(row["col"],
+                          selectInput(inputId = cols_sub$col_clean[i],
+                                      label = HTML(paste0(cols_sub$col[i],
                                                           " <input type = 'checkbox' checked id = ",
-                                                          "'", row["col_clean"], "-checkbox' ",
-                                                          "title = 'show/hide this column'>")),
-                                      choices = sort(unique(as.character(shiny_schiz[[row["col"]]]))),
+                                                          "'", cols_sub$col_clean[i], "-checkbox' ",
+                                                          "aria-label = 'show/hide this column'",
+                                                          "class = '",
+                                                          ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
+                                                          " hint--rounded'>")),
+                                      choices = sort(unique(as.character(shiny_schiz[[cols_sub$col[i]]]))),
                                       multiple = TRUE))
                  })))
           })
@@ -430,23 +467,28 @@ ui <- {
         tabPanel(
           "Ecology and Locality",
           lapply(unique(cols$cat[cols$tab == 5]), function(cat_name) {
-            list(fluidRow(column(12, h4(cat_name))),
-                 fluidRow(apply(cols %>% filter(cat == cat_name), 1, function(row) {
+            cols_sub <- cols %>% filter(cat == cat_name)
+            list(fluidRow(column(12, h4(cat_name, id = idEscape(cat_name)))),
+                 fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
                    column(6,
-                          selectInput(inputId = row["col_clean"],
-                                      label = HTML(paste0(row["col"],
+                          selectInput(inputId = cols_sub$col_clean[i],
+                                      label = HTML(paste0(cols_sub$col[i],
                                                           " <input type = 'checkbox' checked id = ",
-                                                          "'", row["col_clean"], "-checkbox' ",
-                                                          "title = 'show/hide this column'>")),
-                                      choices = sort(unique(as.character(shiny_schiz[[row["col"]]]))),
+                                                          "'", cols_sub$col_clean[i], "-checkbox' ",
+                                                          "aria-label = 'show/hide this column'",
+                                                          "class = '",
+                                                          ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
+                                                          " hint--rounded'>")),
+                                      choices = sort(unique(as.character(shiny_schiz[[cols_sub$col[i]]]))),
                                       multiple = TRUE))
                  })))
           })
         )
       )
     ),
-    fluidRow(actionButton("reset_input", HTML("<i class='fa-solid fa-rotate'></i> Reset all filters")),
-             downloadButton("downloadBlank", "Download blank Excel sheet")),
+    fluidRow(add_prompt(actionButton("reset_input", HTML(paste(fa("rotate", prefer_type = "solid"), "Reset all filters"))),
+                        message = "Reset the table to its original form",
+                        position = "right", type = "warning", rounded = TRUE)),
     id = "side-panel"
     ),
     mainPanel(
@@ -454,10 +496,10 @@ ui <- {
         tabPanel(
           "Database",
           fluidRow(column(12, h4(""))),
-          fluidRow(DT::dataTableOutput('table'))
+          fluidRow(DT::dataTableOutput('table1'))
         ),
         tabPanel(
-          "Taxonomy and Synonyms",
+          "Species Description History",
           fluidRow(column(12, h4(""))),
           fluidRow(DT::dataTableOutput('table2'))
         ),
