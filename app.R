@@ -12,6 +12,7 @@ library(janitor)
 library(htmltools)
 library(fontawesome)
 library(prompter)
+library(Hmisc)
 
 # load data ----
 shiny_schiz_orig <- read.xlsx('data/STDB_data.xlsx',
@@ -48,6 +49,14 @@ shiny_schiz <- shiny_schiz_orig %>%
   row_to_names(1) %>%
   arrange(Family, Subfamily, Genus, Species, Sex) %>%
   mutate(across(where(is.character), ~na_if(., "")))
+
+shiny_schiz_clean <- shiny_schiz
+shiny_schiz_clean[shiny_schiz == "No data"] <- ""
+num_cols <- apply(shiny_schiz_clean, 2, all.is.numeric)
+
+shiny_schiz[, num_cols] <- round(apply(shiny_schiz_clean[, num_cols], 2, all.is.numeric, what = "vector"),
+                                 digits = 2)
+
 
 male_names <- Reduce(union,
                      list(
@@ -239,8 +248,18 @@ server <- function(input, output, session) {
     for (i in seq_len(nrow(cols))) {
       input_value <- input[[cols$col_clean[i]]]
       if (!is.null(input_value)) {
-        data <- data %>%
-          filter(!!as.symbol(cols$col[i]) %in% input_value)
+        if (is.numeric(shiny_schiz[[cols$col[i]]])) {
+          min_val <- floor(min(shiny_schiz[[cols$col[i]]], na.rm = TRUE))
+          max_val <- ceiling(max(shiny_schiz[[cols$col[i]]], na.rm = TRUE))
+          if (input_value[1] > min_val | input_value[2] < max_val) {
+            data <- data %>%
+              filter(!!as.symbol(cols$col[i]) >= input_value[1],
+                     !!as.symbol(cols$col[i]) <= input_value[2])
+          }
+        } else {
+          data <- data %>%
+            filter(!!as.symbol(cols$col[i]) %in% input_value)
+        }
       }
     }
     # update columns based on checkboxes
@@ -265,6 +284,8 @@ server <- function(input, output, session) {
   style = 'bootstrap', class = 'table-bordered',
   extensions = 'Buttons',
   options = list(
+    autoWidth = TRUE,
+    columnDefs = list(list(width = '200px', targets = "_all")),
     scrollX = TRUE,
     scrollY = TRUE,
     scrollCollapse = TRUE,
@@ -336,9 +357,7 @@ server <- function(input, output, session) {
       )
     ),
     rowCallback = JS(rowCallback) # formatting NAs
-  )) %>%
-    formatStyle('Genus', fontStyle = "italic") %>%
-    formatStyle('Species', fontStyle = "italic"))
+  )))
 }
 
 # ui.R ----
@@ -373,8 +392,8 @@ ui <- {
            display: none;
          }
          #side-panel .tab-content {
-           height: 75vh;
-           height: 75dvh;
+           height: 70vh;
+           height: 70dvh;
            overflow-y: auto;
            overflow-x: hidden;
          }"
@@ -410,17 +429,33 @@ ui <- {
             cols_sub <- cols %>% filter(cat == cat_name)
             list(fluidRow(column(12, h4(cat_name, id = idEscape(cat_name)))),
                  fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
-                   column(6,
-                          selectInput(inputId = cols_sub$col_clean[i],
-                                      label = HTML(paste0(cols_sub$col[i],
-                                                          " <input type = 'checkbox' checked id = ",
-                                                          "'", cols_sub$col_clean[i], "-checkbox' ",
-                                                          "aria-label = 'show/hide this column'",
-                                                          "class = '",
-                                                          ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
-                                                          " hint--rounded'>")),
-                                      choices = sort(unique(as.character(shiny_schiz[[cols_sub$col[i]]]))),
-                                      multiple = TRUE))
+                   if (is.numeric(shiny_schiz[[cols_sub$col[i]]])) {
+                     min_val <- floor(min(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE))
+                     max_val <- ceiling(max(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE))
+                     column(6, sliderInput(inputId = cols_sub$col_clean[i],
+                                           label = HTML(paste0(cols_sub$col[i],
+                                                               " <input type = 'checkbox' checked id = ",
+                                                               "'", cols_sub$col_clean[i], "-checkbox' ",
+                                                               "aria-label = 'show/hide this column'",
+                                                               "class = '",
+                                                               ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
+                                                               " hint--rounded'>")),
+                                           min = min_val,
+                                           max = max_val,
+                                           value = c(min_val, max_val),
+                                           step = .01))
+                   } else {
+                     column(6, selectInput(inputId = cols_sub$col_clean[i],
+                                           label = HTML(paste0(cols_sub$col[i],
+                                                               " <input type = 'checkbox' checked id = ",
+                                                               "'", cols_sub$col_clean[i], "-checkbox' ",
+                                                               "aria-label = 'show/hide this column'",
+                                                               "class = '",
+                                                               ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
+                                                               " hint--rounded'>")),
+                                           choices = sort(unique(as.character(shiny_schiz[[cols_sub$col[i]]]))),
+                                           multiple = TRUE))
+                   }
                  })))
           })
         ),
@@ -430,17 +465,33 @@ ui <- {
             cols_sub <- cols %>% filter(cat == cat_name)
             list(fluidRow(column(12, h4(cat_name, id = idEscape(cat_name)))),
                  fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
-                   column(6,
-                          selectInput(inputId = cols_sub$col_clean[i],
-                                      label = HTML(paste0(cols_sub$col[i],
-                                                          " <input type = 'checkbox' checked id = ",
-                                                          "'", cols_sub$col_clean[i], "-checkbox' ",
-                                                          "aria-label = 'show/hide this column'",
-                                                          "class = '",
-                                                          ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
-                                                          " hint--rounded'>")),
-                                      choices = sort(unique(as.character(shiny_schiz[[cols_sub$col[i]]]))),
-                                      multiple = TRUE))
+                   if (is.numeric(shiny_schiz[[cols_sub$col[i]]])) {
+                     min_val <- floor(min(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE))
+                     max_val <- ceiling(max(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE))
+                     column(6, sliderInput(inputId = cols_sub$col_clean[i],
+                                           label = HTML(paste0(cols_sub$col[i],
+                                                               " <input type = 'checkbox' checked id = ",
+                                                               "'", cols_sub$col_clean[i], "-checkbox' ",
+                                                               "aria-label = 'show/hide this column'",
+                                                               "class = '",
+                                                               ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
+                                                               " hint--rounded'>")),
+                                           min = min_val,
+                                           max = max_val,
+                                           value = c(min_val, max_val),
+                                           step = .01))
+                   } else {
+                     column(6, selectInput(inputId = cols_sub$col_clean[i],
+                                           label = HTML(paste0(cols_sub$col[i],
+                                                               " <input type = 'checkbox' checked id = ",
+                                                               "'", cols_sub$col_clean[i], "-checkbox' ",
+                                                               "aria-label = 'show/hide this column'",
+                                                               "class = '",
+                                                               ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
+                                                               " hint--rounded'>")),
+                                           choices = sort(unique(as.character(shiny_schiz[[cols_sub$col[i]]]))),
+                                           multiple = TRUE))
+                   }
                  })))
           })
         ),
@@ -450,17 +501,33 @@ ui <- {
             cols_sub <- cols %>% filter(cat == cat_name)
             list(fluidRow(column(12, h4(cat_name, id = idEscape(cat_name)))),
                  fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
-                   column(6,
-                          selectInput(inputId = cols_sub$col_clean[i],
-                                      label = HTML(paste0(cols_sub$col[i],
-                                                          " <input type = 'checkbox' checked id = ",
-                                                          "'", cols_sub$col_clean[i], "-checkbox' ",
-                                                          "aria-label = 'show/hide this column'",
-                                                          "class = '",
-                                                          ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
-                                                          " hint--rounded'>")),
-                                      choices = sort(unique(as.character(shiny_schiz[[cols_sub$col[i]]]))),
-                                      multiple = TRUE))
+                   if (is.numeric(shiny_schiz[[cols_sub$col[i]]])) {
+                     min_val <- floor(min(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE))
+                     max_val <- ceiling(max(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE))
+                     column(6, sliderInput(inputId = cols_sub$col_clean[i],
+                                           label = HTML(paste0(cols_sub$col[i],
+                                                               " <input type = 'checkbox' checked id = ",
+                                                               "'", cols_sub$col_clean[i], "-checkbox' ",
+                                                               "aria-label = 'show/hide this column'",
+                                                               "class = '",
+                                                               ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
+                                                               " hint--rounded'>")),
+                                           min = min_val,
+                                           max = max_val,
+                                           value = c(min_val, max_val),
+                                           step = .01))
+                   } else {
+                     column(6, selectInput(inputId = cols_sub$col_clean[i],
+                                           label = HTML(paste0(cols_sub$col[i],
+                                                               " <input type = 'checkbox' checked id = ",
+                                                               "'", cols_sub$col_clean[i], "-checkbox' ",
+                                                               "aria-label = 'show/hide this column'",
+                                                               "class = '",
+                                                               ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
+                                                               " hint--rounded'>")),
+                                           choices = sort(unique(as.character(shiny_schiz[[cols_sub$col[i]]]))),
+                                           multiple = TRUE))
+                   }
                  })))
           })
         ),
