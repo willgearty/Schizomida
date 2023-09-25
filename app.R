@@ -282,6 +282,7 @@ server <- function(input, output, session) {
   container = tab_layout,
   rownames = FALSE,
   style = 'bootstrap', class = 'table-bordered',
+  selection = 'none',
   extensions = 'Buttons',
   options = list(
     autoWidth = TRUE,
@@ -329,6 +330,7 @@ server <- function(input, output, session) {
   },
   rownames = FALSE,
   style = 'bootstrap', class = 'table-bordered',
+  selection = 'none',
   extensions = 'Buttons',
   options = list(
     scrollX = TRUE,
