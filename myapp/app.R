@@ -19,6 +19,7 @@ library(fontawesome)
 webr::install("prompter")
 library(prompter)
 
+# copied from Hmisc
 `%nin%` <- function(x, table) match(x, table, nomatch = 0) == 0
 
 all.is.numeric <- function(x, what = c("test", "vector", "nonnum"), extras = c(".", "NA")) {
@@ -49,6 +50,7 @@ idEscape <- function(x) {
   gsub("[^a-zA-Z0-9_]", "-", x)
 }
 
+# set up table of headings and subheadings
 cols <- data.frame(cat = colnames(shiny_schiz_orig),
                    col = as.character(shiny_schiz_orig[1, ])) %>%
   mutate(cat = gsub(".", " ", cat, fixed = TRUE)) %>%
@@ -67,14 +69,16 @@ shiny_schiz <- shiny_schiz_orig %>%
   arrange(Family, Subfamily, Genus, Species, Sex) %>%
   mutate(across(where(is.character), ~na_if(., "")))
 
+# Find numeric columns
 shiny_schiz_clean <- shiny_schiz
 shiny_schiz_clean[shiny_schiz == "No data"] <- ""
 num_cols <- apply(shiny_schiz_clean, 2, all.is.numeric)
 
+# Round and save numeric values
 shiny_schiz[, num_cols] <- round(apply(shiny_schiz_clean[, num_cols], 2, all.is.numeric, what = "vector"),
                                  digits = 2)
 
-
+# Get male and female columns
 male_names <- Reduce(union,
                      list(
                        grep("(male", cols$col, fixed = TRUE, value = TRUE),
@@ -87,8 +91,6 @@ female_names <- Reduce(union,
                          cols$col[grepl("(female", cols$cat, fixed = TRUE)],
                          grep("(female", cols$cat, fixed = TRUE, value = TRUE)
                        ))
-
-# round all numeric columns to 2 decimal places
 
 # table layout and formatting ----
 # generate table layout
@@ -128,6 +130,7 @@ rowCallback <- c(
 server <- function(input, output, session) {
   data <- shiny_schiz # set the scope of this variable
   proxy1 <- dataTableProxy('table1')
+  proxy2 <- dataTableProxy('table2')
   
   # observers ----
   update_cols <- function(input) {
@@ -142,10 +145,18 @@ server <- function(input, output, session) {
         hide_cols <- c(hide_cols, name_unclean)
       }
     }
+    # hide columns in database
     showCols(proxy1,
              unname(sapply(show_cols,
                            function(x) which(x == colnames(data)) - 1)))
     hideCols(proxy1,
+             unname(sapply(hide_cols,
+                           function(x) which(x == colnames(data)) - 1)))
+    # hide columns in second table
+    showCols(proxy2,
+             unname(sapply(show_cols,
+                           function(x) which(x == colnames(data)) - 1)))
+    hideCols(proxy2,
              unname(sapply(hide_cols,
                            function(x) which(x == colnames(data)) - 1)))
   }
@@ -211,7 +222,7 @@ server <- function(input, output, session) {
     dat <- shiny_schiz
     if (!is.null(input$Family)) dat <- dat %>% filter(Family %in% input$Family)
     choices <- sort(unique(as.character(dat$Subfamily)))
-    updateSelectInput(inputId = "Subfamily", choices = choices)
+    updateSelectizeInput(inputId = "Subfamily", choices = choices, server = TRUE)
   }, ignoreNULL = FALSE, ignoreInit = TRUE)
   
   # update genus if family/subfamily is changed
@@ -220,7 +231,7 @@ server <- function(input, output, session) {
     if (!is.null(input$Family)) dat <- dat %>% filter(Family %in% input$Family)
     if (!is.null(input$Subfamily)) dat <- dat %>% filter(Subfamily %in% input$Subfamily)
     choices <- sort(unique(as.character(dat$Genus)))
-    updateSelectInput(inputId = "Genus", choices = choices)
+    updateSelectizeInput(inputId = "Genus", choices = choices, server = TRUE)
   }, ignoreNULL = FALSE, ignoreInit = TRUE)
   
   # update species if family/subfamily/genus is changed
@@ -230,7 +241,7 @@ server <- function(input, output, session) {
     if (!is.null(input$Subfamily)) dat <- dat %>% filter(Subfamily %in% input$Subfamily)
     if (!is.null(input$Genus)) dat <- dat %>% filter(Genus %in% input$Genus)
     choices <- sort(unique(as.character(dat$Species)))
-    updateSelectInput(inputId = "Species", choices = choices)
+    updateSelectizeInput(inputId = "Species", choices = choices, server = TRUE)
   }, ignoreNULL = FALSE)
   
   # update sex if family/subfamily/genus/species is changed
@@ -241,7 +252,7 @@ server <- function(input, output, session) {
     if (!is.null(input$Genus)) dat <- dat %>% filter(Genus %in% input$Genus)
     if (!is.null(input$Species)) dat <- dat %>% filter(Species %in% input$Species)
     choices <- sort(unique(as.character(dat$Sex)))
-    updateSelectInput(inputId = "Sex", choices = choices)
+    updateSelectizeInput(inputId = "Sex", choices = choices, server = TRUE)
   }, ignoreNULL = FALSE, ignoreInit = TRUE)
   
   # update male/female filters when sex is changed
@@ -343,7 +354,23 @@ server <- function(input, output, session) {
   
   # tax. and syn. table ----
   output$table2 <- DT::renderDataTable(DT::datatable({
-    taxonomy_syn
+    data2 <- taxonomy_syn
+    for (col in c("Family", "Subfamily", "Genus", "Species")) {
+      input_value <- input[[col]]
+      if (!is.null(input_value)) {
+        if (col == "Species") {
+          input_split <- gsub("†", "", strsplit(input_value, " ")[[1]])
+          input_split[1] <- substr(input_split[1], 1, 1)
+          input_value <- paste0(input_split[1], ". ", input_split[2])
+        }
+        input_value <- gsub("†", "", input_value)
+        data2 <- data2 %>%
+          filter(grepl(input_value, !!as.symbol(col), fixed = TRUE))
+      }
+    }
+    # update columns based on checkboxes
+    update_cols(input)
+    data2
   },
   rownames = FALSE,
   style = 'bootstrap', class = 'table-bordered',
@@ -592,7 +619,7 @@ ui <- {
         tabPanel(
           "Full References",
           fluidRow(column(12, h4(""))),
-          div(references_html, style = "overflow-y: scroll; height: calc(100vh - 120px); height: calc(100dvh - 120px);")
+          div(references_html, style = "overflow-y: scroll; height: calc(90vh - 120px); height: calc(90dvh - 120px);")
         )
       )
     ))
