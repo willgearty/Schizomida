@@ -56,7 +56,7 @@ cols <- data.frame(cat = colnames(shiny_schiz_orig),
   mutate(cat = gsub(".", " ", cat, fixed = TRUE)) %>%
   mutate(tab = case_when(
     cat %in% c("Family", "Subfamily", "Genus", "Species", "Sex") ~ 1, # Taxonomy and Sex
-    cat %in% c("Opisthosoma", "Spermathecae (females)", "Flagellum") ~ 3, # Opisthosoma
+    cat %in% c("Opisthosoma", "Spermathecae (female)", "Flagellum") ~ 3, # Opisthosoma
     cat %in% c("Size", "Legs") ~ 4, # Legs and Size
     cat %in% c("Ecology", "Distribution") ~ 5,
     grepl("References", cat) ~ 6,
