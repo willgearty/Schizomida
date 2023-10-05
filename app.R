@@ -149,6 +149,28 @@ server <- function(input, output, session) {
                            function(x) which(x == colnames(data)) - 1)))
   }
   
+  # monitor numeric filters and show/hide NA checkboxes when not default
+  observeEvent(
+    lapply(
+      cols$filt_clean[num_cols & !cols$dupe],
+      function(name) {
+        input[[name]]
+      }
+    ),
+    for(i in which(num_cols & !cols$dupe)) {
+      input_value <- input[[cols$filt_clean[i]]]
+      ids <- paste0(cols$filt_clean[i], c("-NAs", "-NAs-label"))
+      min_val <- floor(min(shiny_schiz[[cols$col[i]]], na.rm = TRUE))
+      max_val <- ceiling(max(shiny_schiz[[cols$col[i]]], na.rm = TRUE))
+      if (input_value[1] > min_val | input_value[2] < max_val) {
+        sapply(ids, function(id) runjs(paste0("$('#", id, "').show()")))
+      } else {
+        sapply(ids, function(id) runjs(paste0("$('#", id, "').hide().prop('checked', false).trigger('change')")))
+      }
+    },
+    ignoreInit = TRUE
+  )
+  
   # reset all filters if button is pressed
   observeEvent(input$reset_input, {
     reset("side-panel")
@@ -268,9 +290,16 @@ server <- function(input, output, session) {
           min_val <- floor(min(shiny_schiz[[cols$col[i]]], na.rm = TRUE))
           max_val <- ceiling(max(shiny_schiz[[cols$col[i]]], na.rm = TRUE))
           if (input_value[1] > min_val | input_value[2] < max_val) {
-            data <- data %>%
-              filter(!!as.symbol(cols$col[i]) >= input_value[1],
-                     !!as.symbol(cols$col[i]) <= input_value[2])
+            if (input[[paste0(cols$filt_clean[i], "-NAs")]]) {
+              data <- data %>%
+                filter((!!as.symbol(cols$col[i]) >= input_value[1] & 
+                          !!as.symbol(cols$col[i]) <= input_value[2]) |
+                         is.na(!!as.symbol(cols$col[i])))
+            } else {
+              data <- data %>%
+                filter(!!as.symbol(cols$col[i]) >= input_value[1],
+                       !!as.symbol(cols$col[i]) <= input_value[2])
+            }
           }
         } else {
           data <- data %>%
@@ -473,6 +502,15 @@ ui <- {
                                                                "aria-label = 'show/hide this column'",
                                                                "class = '",
                                                                ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
+                                                               " hint--rounded'>",
+                                                               "<br><label id='", cols_sub$filt_clean[i], "-NAs-label' ",
+                                                               "for='", cols_sub$filt_clean[i], "-NAs' hidden ",
+                                                               "style='font-size: small'>Include NAs</label> ",
+                                                               "<input style='display: none;' type = 'checkbox' id = '",
+                                                               cols_sub$filt_clean[i], "-NAs' ",
+                                                               "aria-label = 'include NA values in this column'",
+                                                               "class = '",
+                                                               ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
                                                                " hint--rounded'>")),
                                            min = min_val,
                                            max = max_val,
@@ -509,6 +547,15 @@ ui <- {
                                                                "aria-label = 'show/hide this column'",
                                                                "class = '",
                                                                ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
+                                                               " hint--rounded'>",
+                                                               "<br><label id='", cols_sub$filt_clean[i], "-NAs-label' ",
+                                                               "for='", cols_sub$filt_clean[i], "-NAs' hidden ",
+                                                               "style='font-size: small'>Include NAs</label> ",
+                                                               "<input style='display: none;' type = 'checkbox' id = '",
+                                                               cols_sub$filt_clean[i], "-NAs' ",
+                                                               "aria-label = 'include NA values in this column'",
+                                                               "class = '",
+                                                               ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
                                                                " hint--rounded'>")),
                                            min = min_val,
                                            max = max_val,
@@ -543,6 +590,15 @@ ui <- {
                                                                " <input type = 'checkbox' checked id = ",
                                                                "'", cols_sub$filt_clean[i], "-checkbox' ",
                                                                "aria-label = 'show/hide this column'",
+                                                               "class = '",
+                                                               ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
+                                                               " hint--rounded'>",
+                                                               "<br><label id='", cols_sub$filt_clean[i], "-NAs-label' ",
+                                                               "for='", cols_sub$filt_clean[i], "-NAs' hidden ",
+                                                               "style='font-size: small'>Include NAs</label> ",
+                                                               "<input style='display: none;' type = 'checkbox' id = '",
+                                                               cols_sub$filt_clean[i], "-NAs' ",
+                                                               "aria-label = 'include NA values in this column'",
                                                                "class = '",
                                                                ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
                                                                " hint--rounded'>")),
