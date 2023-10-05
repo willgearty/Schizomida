@@ -62,7 +62,10 @@ cols <- data.frame(cat = colnames(shiny_schiz_orig),
     grepl("References", cat) ~ 6,
     .default = 2 # Prosoma
   )) %>%
-  mutate(col_clean = idEscape(col)) # replace special characters with dashes
+  mutate(col_clean = idEscape(col)) %>% # replace special characters with dashes
+  mutate(filt = gsub("(\\s\\(min\\)|\\s\\(max\\))", "", col)) %>%
+  mutate(filt_clean = idEscape(filt)) %>%
+  mutate(dupe = duplicated(filt))
 
 shiny_schiz <- shiny_schiz_orig %>%
   row_to_names(1) %>%
@@ -138,7 +141,7 @@ server <- function(input, output, session) {
     hide_cols <- c()
     for(name in names(input)[grep("-checkbox", names(input), fixed = TRUE)]) {
       # convert to unclean name
-      name_unclean <- cols$col[match(gsub("-checkbox", "", name), cols$col_clean)]
+      name_unclean <- cols$col[grep(gsub("-checkbox", "", name), cols$col_clean)]
       if(input[[name]]) {
         show_cols <- c(show_cols, name_unclean)
       } else {
@@ -274,7 +277,7 @@ server <- function(input, output, session) {
   output$table1 <- DT::renderDataTable(DT::datatable({
     data <- shiny_schiz
     for (i in seq_len(nrow(cols))) {
-      input_value <- input[[cols$col_clean[i]]]
+      input_value <- input[[cols$filt_clean[i]]]
       if (!is.null(input_value)) {
         if (is.numeric(shiny_schiz[[cols$col[i]]])) {
           min_val <- floor(min(shiny_schiz[[cols$col[i]]], na.rm = TRUE))
@@ -472,16 +475,16 @@ ui <- {
         tabPanel(
           "Prosoma",
           lapply(unique(cols$cat[cols$tab == 2]), function(cat_name) {
-            cols_sub <- cols %>% filter(cat == cat_name)
+            cols_sub <- cols %>% filter(cat == cat_name, !dupe)
             list(fluidRow(column(12, h4(cat_name, id = idEscape(cat_name)))),
                  fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
                    if (is.numeric(shiny_schiz[[cols_sub$col[i]]])) {
                      min_val <- floor(min(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE))
                      max_val <- ceiling(max(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE))
-                     column(6, sliderInput(inputId = cols_sub$col_clean[i],
-                                           label = HTML(paste0(cols_sub$col[i],
+                     column(6, sliderInput(inputId = cols_sub$filt_clean[i],
+                                           label = HTML(paste0(cols_sub$filt[i],
                                                                " <input type = 'checkbox' checked id = ",
-                                                               "'", cols_sub$col_clean[i], "-checkbox' ",
+                                                               "'", cols_sub$filt_clean[i], "-checkbox' ",
                                                                "aria-label = 'show/hide this column'",
                                                                "class = '",
                                                                ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
@@ -508,16 +511,16 @@ ui <- {
         tabPanel(
           "Opisthosoma",
           lapply(unique(cols$cat[cols$tab == 3]), function(cat_name) {
-            cols_sub <- cols %>% filter(cat == cat_name)
+            cols_sub <- cols %>% filter(cat == cat_name, !dupe)
             list(fluidRow(column(12, h4(cat_name, id = idEscape(cat_name)))),
                  fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
                    if (is.numeric(shiny_schiz[[cols_sub$col[i]]])) {
                      min_val <- floor(min(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE))
                      max_val <- ceiling(max(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE))
-                     column(6, sliderInput(inputId = cols_sub$col_clean[i],
-                                           label = HTML(paste0(cols_sub$col[i],
+                     column(6, sliderInput(inputId = cols_sub$filt_clean[i],
+                                           label = HTML(paste0(cols_sub$filt[i],
                                                                " <input type = 'checkbox' checked id = ",
-                                                               "'", cols_sub$col_clean[i], "-checkbox' ",
+                                                               "'", cols_sub$filt_clean[i], "-checkbox' ",
                                                                "aria-label = 'show/hide this column'",
                                                                "class = '",
                                                                ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
@@ -544,16 +547,16 @@ ui <- {
         tabPanel(
           "Legs and Size",
           lapply(unique(cols$cat[cols$tab == 4]), function(cat_name) {
-            cols_sub <- cols %>% filter(cat == cat_name)
+            cols_sub <- cols %>% filter(cat == cat_name, !dupe)
             list(fluidRow(column(12, h4(cat_name, id = idEscape(cat_name)))),
                  fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
                    if (is.numeric(shiny_schiz[[cols_sub$col[i]]])) {
                      min_val <- floor(min(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE))
                      max_val <- ceiling(max(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE))
-                     column(6, sliderInput(inputId = cols_sub$col_clean[i],
-                                           label = HTML(paste0(cols_sub$col[i],
+                     column(6, sliderInput(inputId = cols_sub$filt_clean[i],
+                                           label = HTML(paste0(cols_sub$filt[i],
                                                                " <input type = 'checkbox' checked id = ",
-                                                               "'", cols_sub$col_clean[i], "-checkbox' ",
+                                                               "'", cols_sub$filt_clean[i], "-checkbox' ",
                                                                "aria-label = 'show/hide this column'",
                                                                "class = '",
                                                                ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
