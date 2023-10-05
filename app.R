@@ -126,7 +126,7 @@ server <- function(input, output, session) {
     hide_cols <- c()
     for(name in names(input)[grep("-checkbox", names(input), fixed = TRUE)]) {
       # convert to unclean name
-      name_unclean <- cols$col[match(gsub("-checkbox", "", name), cols$col_clean)]
+      name_unclean <- cols$col[grep(gsub("-checkbox", "", name), cols$col_clean)]
       if(input[[name]]) {
         show_cols <- c(show_cols, name_unclean)
       } else {
@@ -262,7 +262,7 @@ server <- function(input, output, session) {
   output$table1 <- DT::renderDataTable(DT::datatable({
     data <- shiny_schiz
     for (i in seq_len(nrow(cols))) {
-      input_value <- input[[cols$col_clean[i]]]
+      input_value <- input[[cols$filt_clean[i]]]
       if (!is.null(input_value)) {
         if (is.numeric(shiny_schiz[[cols$col[i]]])) {
           min_val <- floor(min(shiny_schiz[[cols$col[i]]], na.rm = TRUE))
