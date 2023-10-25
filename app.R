@@ -13,6 +13,7 @@ library(htmltools)
 library(fontawesome)
 library(prompter)
 library(Hmisc)
+library(bslib)
 
 # load data ----
 shiny_schiz_orig <- read.xlsx('data/STDB_data.xlsx',
@@ -28,6 +29,7 @@ colnames(taxonomy_syn) <- gsub(".", " ", colnames(taxonomy_syn), fixed = TRUE)
 
 # convert docx to filtered html, then convert to UTF-8
 references_html <- includeHTML("data/STDB_references.htm")
+about_html <- includeHTML("data/STDB_about.htm")
 
 # clean data ----
 # make a function to clean strings for use as element ids
@@ -160,8 +162,8 @@ server <- function(input, output, session) {
     for(i in which(num_cols & !cols$dupe)) {
       input_value <- input[[cols$filt_clean[i]]]
       ids <- paste0(cols$filt_clean[i], c("-NAs", "-NAs-label"))
-      min_val <- floor(min(shiny_schiz[[cols$col[i]]], na.rm = TRUE))
-      max_val <- ceiling(max(shiny_schiz[[cols$col[i]]], na.rm = TRUE))
+      min_val <- min(shiny_schiz[[cols$col[i]]], na.rm = TRUE)
+      max_val <- max(shiny_schiz[[cols$col[i]]], na.rm = TRUE)
       if (input_value[1] > min_val | input_value[2] < max_val) {
         sapply(ids, function(id) runjs(paste0("$('#", id, "').show()")))
       } else {
@@ -174,7 +176,7 @@ server <- function(input, output, session) {
   # reset all filters if button is pressed
   observeEvent(input$reset_input, {
     reset("side-panel")
-    runjs("$('input[type=checkbox]').prop('checked', true).trigger('change')")
+    runjs("$('input[type=checkbox]:not([id$=NAs])').prop('checked', true).trigger('change')")
   })
   
   # monitor checkboxes and show/hide specified columns
@@ -287,8 +289,8 @@ server <- function(input, output, session) {
       input_value <- input[[cols$filt_clean[i]]]
       if (!is.null(input_value)) {
         if (is.numeric(shiny_schiz[[cols$col[i]]])) {
-          min_val <- floor(min(shiny_schiz[[cols$col[i]]], na.rm = TRUE))
-          max_val <- ceiling(max(shiny_schiz[[cols$col[i]]], na.rm = TRUE))
+          min_val <- min(shiny_schiz[[cols$col[i]]], na.rm = TRUE)
+          max_val <- max(shiny_schiz[[cols$col[i]]], na.rm = TRUE)
           if (input_value[1] > min_val | input_value[2] < max_val) {
             if (input[[paste0(cols$filt_clean[i], "-NAs")]]) {
               data <- data %>%
@@ -322,11 +324,15 @@ server <- function(input, output, session) {
                                function(x) which(x == colnames(data)) - 1)))
       }
     }
+    # update unique species count
+    runjs(paste0("$('#species_count').html('(", length(unique(data$Species)), " unique species)')"))
     data
   },
   container = tab_layout,
   rownames = FALSE,
-  style = 'bootstrap', class = 'table-bordered',
+  elementId = 'table1',
+  style = 'bootstrap',
+  class = 'table-bordered stripe',
   selection = 'none',
   extensions = 'Buttons',
   options = list(
@@ -364,7 +370,12 @@ server <- function(input, output, session) {
            attr = list("aria-label" = "Download an empty copy of the below table in Excel format (only colomn headers)")
       )
     ),
-    rowCallback = JS(rowCallback) # formatting NAs
+    rowCallback = JS(rowCallback), # formatting NAs
+    infoCallback = JS(c(
+      "function( settings, start, end, max, total, pre ) {",
+      "  return 'Showing ' + total + ' entries';",
+      "}"
+    )) # for formatting the info below the table
   )) %>%
     formatStyle('Genus', fontStyle = "italic") %>%
     formatStyle('Species', fontStyle = "italic"))
@@ -389,8 +400,10 @@ server <- function(input, output, session) {
     update_cols(input)
     data2
   },
+  elementId = 'table2',
   rownames = FALSE,
-  style = 'bootstrap', class = 'table-bordered',
+  style = 'bootstrap',
+  class = 'table-bordered stripe',
   selection = 'none',
   extensions = 'Buttons',
   options = list(
@@ -419,7 +432,12 @@ server <- function(input, output, session) {
            attr = list("aria-label" = "Download a copy of the below table in Excel format")
       )
     ),
-    rowCallback = JS(rowCallback) # formatting NAs
+    rowCallback = JS(rowCallback), # formatting NAs
+    infoCallback = JS(c(
+      "function( settings, start, end, max, total, pre ) {",
+      "  return 'Showing ' + total + ' species';",
+      "}"
+    )) # for formatting the info below the table
   )))
 }
 
@@ -427,6 +445,7 @@ server <- function(input, output, session) {
 # process inputs
 ui <- {
   fluidPage(
+    theme = bs_theme(version = 5),
     useShinyjs(),
     use_prompt(),
     tags$head(
@@ -459,14 +478,25 @@ ui <- {
            height: 70dvh;
            overflow-y: auto;
            overflow-x: hidden;
+         }
+         .darkmode--activated .table-striped tr.odd>* {
+           background-color: #e0e0e0 !important;
+         }
+         .darkmode-layer, .darkmode-toggle {
+           z-index: 500;
          }"
         ),
       ),
       tags$script(src = "xlsx.core.min.js"),
       tags$script(src = "FileSaver.min.js"),
-      tags$script(src = "tableexport.min.js")
+      tags$script(src = "tableexport.min.js"),
+      tags$script(src="https://cdn.jsdelivr.net/npm/darkmode-js@1.5.7/lib/darkmode-js.min.js")
     ),
-    titlePanel('Schizomid Trait Database'),
+    tags$script("function addDarkmodeWidget() {
+      new Darkmode({label: '🌓'}).showWidget();
+    }
+    window.addEventListener('load', addDarkmodeWidget);"),
+    titlePanel('Schizomida Trait Data Base (STDB)'),
     sidebarLayout(sidebarPanel(fluidRow(
       tabsetPanel(
         tabPanel(
@@ -493,8 +523,8 @@ ui <- {
             list(fluidRow(column(12, h4(cat_name, id = idEscape(cat_name)))),
                  fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
                    if (is.numeric(shiny_schiz[[cols_sub$col[i]]])) {
-                     min_val <- floor(min(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE))
-                     max_val <- ceiling(max(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE))
+                     min_val <- min(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE)
+                     max_val <- max(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE)
                      column(6, sliderInput(inputId = cols_sub$filt_clean[i],
                                            label = HTML(paste0(cols_sub$filt[i],
                                                                " <input type = 'checkbox' checked id = ",
@@ -504,8 +534,9 @@ ui <- {
                                                                ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
                                                                " hint--rounded'>",
                                                                "<br><label id='", cols_sub$filt_clean[i], "-NAs-label' ",
-                                                               "for='", cols_sub$filt_clean[i], "-NAs' hidden ",
-                                                               "style='font-size: small'>Include NAs</label> ",
+                                                               "for='", cols_sub$filt_clean[i], "-NAs' ",
+                                                               "style='font-size: small; display: none;'>",
+                                                               "Include NAs</label> ",
                                                                "<input style='display: none;' type = 'checkbox' id = '",
                                                                cols_sub$filt_clean[i], "-NAs' ",
                                                                "aria-label = 'include NA values in this column'",
@@ -538,8 +569,8 @@ ui <- {
             list(fluidRow(column(12, h4(cat_name, id = idEscape(cat_name)))),
                  fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
                    if (is.numeric(shiny_schiz[[cols_sub$col[i]]])) {
-                     min_val <- floor(min(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE))
-                     max_val <- ceiling(max(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE))
+                     min_val <- min(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE)
+                     max_val <- max(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE)
                      column(6, sliderInput(inputId = cols_sub$filt_clean[i],
                                            label = HTML(paste0(cols_sub$filt[i],
                                                                " <input type = 'checkbox' checked id = ",
@@ -549,8 +580,9 @@ ui <- {
                                                                ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
                                                                " hint--rounded'>",
                                                                "<br><label id='", cols_sub$filt_clean[i], "-NAs-label' ",
-                                                               "for='", cols_sub$filt_clean[i], "-NAs' hidden ",
-                                                               "style='font-size: small'>Include NAs</label> ",
+                                                               "for='", cols_sub$filt_clean[i], "-NAs' ",
+                                                               "style='font-size: small; display: none;'>",
+                                                               "Include NAs</label> ",
                                                                "<input style='display: none;' type = 'checkbox' id = '",
                                                                cols_sub$filt_clean[i], "-NAs' ",
                                                                "aria-label = 'include NA values in this column'",
@@ -583,8 +615,8 @@ ui <- {
             list(fluidRow(column(12, h4(cat_name, id = idEscape(cat_name)))),
                  fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
                    if (is.numeric(shiny_schiz[[cols_sub$col[i]]])) {
-                     min_val <- floor(min(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE))
-                     max_val <- ceiling(max(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE))
+                     min_val <- min(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE)
+                     max_val <- max(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE)
                      column(6, sliderInput(inputId = cols_sub$filt_clean[i],
                                            label = HTML(paste0(cols_sub$filt[i],
                                                                " <input type = 'checkbox' checked id = ",
@@ -594,8 +626,9 @@ ui <- {
                                                                ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
                                                                " hint--rounded'>",
                                                                "<br><label id='", cols_sub$filt_clean[i], "-NAs-label' ",
-                                                               "for='", cols_sub$filt_clean[i], "-NAs' hidden ",
-                                                               "style='font-size: small'>Include NAs</label> ",
+                                                               "for='", cols_sub$filt_clean[i], "-NAs' ",
+                                                               "style='font-size: small; display: none;'>",
+                                                               "Include NAs</label> ",
                                                                "<input style='display: none;' type = 'checkbox' id = '",
                                                                cols_sub$filt_clean[i], "-NAs' ",
                                                                "aria-label = 'include NA values in this column'",
@@ -653,7 +686,9 @@ ui <- {
         tabPanel(
           "Database",
           fluidRow(column(12, h4(""))),
-          fluidRow(DT::dataTableOutput('table1'))
+          fluidRow(DT::dataTableOutput('table1'),
+                   div(paste0("(", length(unique(shiny_schiz$Species)), " unique species)"),
+                       id = "species_count"))
         ),
         tabPanel(
           "Species Description History",
@@ -664,6 +699,11 @@ ui <- {
           "Full References",
           fluidRow(column(12, h4(""))),
           div(references_html, style = "overflow-y: scroll; height: calc(90vh - 120px); height: calc(90dvh - 120px);")
+        ),
+        tabPanel(
+          "About and Contact",
+          fluidRow(column(12, h4(""))),
+          div(about_html, style = "overflow-y: scroll; height: calc(90vh - 120px); height: calc(90dvh - 120px);")
         )
       )
     ))
