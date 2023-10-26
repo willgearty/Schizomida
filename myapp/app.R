@@ -109,7 +109,7 @@ tab_layout <- withTags(table(
     tr(
       lapply(cols$cat[double_row[double_row != ref_col]], th, rowspan = 2),
       lapply(seq_along(col_width), function(i) {
-        th(names(col_width)[i], colspan = col_width[i])
+        th(names(col_width)[i], colspan = col_width[i], style = "text-align: center;")
       }),
       th(cols$cat[ref_col], rowspan = 2)
     ),
