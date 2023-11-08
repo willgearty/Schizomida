@@ -118,12 +118,37 @@ rowCallback <- c(
 
 # server.R ----
 server <- function(input, output, session) {
-  data <- shiny_schiz # set the scope of this variable
   proxy1 <- dataTableProxy('table1')
   proxy2 <- dataTableProxy('table2')
   
   # observers ----
+  # modal popup when selecting a row
   observeEvent(input$table1_rows_selected, {
+    data <- shiny_schiz
+    for (i in seq_len(nrow(cols))) {
+      input_value <- input[[cols$filt_clean[i]]]
+      if (!is.null(input_value)) {
+        if (is.numeric(shiny_schiz[[cols$col[i]]])) {
+          min_val <- min(shiny_schiz[[cols$col[i]]], na.rm = TRUE)
+          max_val <- max(shiny_schiz[[cols$col[i]]], na.rm = TRUE)
+          if (input_value[1] > min_val | input_value[2] < max_val) {
+            if (input[[paste0(cols$filt_clean[i], "-NAs")]]) {
+              data <- data %>%
+                filter((!!as.symbol(cols$col[i]) >= input_value[1] & 
+                          !!as.symbol(cols$col[i]) <= input_value[2]) |
+                         is.na(!!as.symbol(cols$col[i])))
+            } else {
+              data <- data %>%
+                filter(!!as.symbol(cols$col[i]) >= input_value[1],
+                       !!as.symbol(cols$col[i]) <= input_value[2])
+            }
+          }
+        } else {
+          data <- data %>%
+            filter(!!as.symbol(cols$col[i]) %in% input_value)
+        }
+      }
+    }
     showModal(modalDialog(
       tags$table(
         lapply(colnames(data), function(name) {
