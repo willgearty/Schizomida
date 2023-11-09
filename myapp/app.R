@@ -4,7 +4,7 @@
 
 # relevant packages ----
 library(shiny)
-webr::install('shinyjs', repos = c('https://daattali.r-universe.dev', 'https://repo.r-wasm.org'))
+webr::install('shinyjs')
 library(shinyjs)
 webr::install("dplyr")
 library(dplyr)
