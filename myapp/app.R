@@ -581,14 +581,12 @@ ui <- {
          .accordion-item:nth-of-type(5) .accordion-button {
            background-color: #ccccff;
          }
-         .nav-link {
-           font-size: large !important;
-         }
          .accordion-title {
            font-size: large !important;
          }
-         li.nav-item {
-           margin-right: 10px;
+         .nav li a {
+           margin-right: 10px !important;
+           font-size: large !important;
          }
          "
         ),
