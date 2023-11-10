@@ -614,7 +614,7 @@ ui <- {
       tags$script(src="https://cdn.jsdelivr.net/npm/darkmode-js@1.5.7/lib/darkmode-js.min.js")
     ),
     tags$script("function addDarkmodeWidget() {
-        new Darkmode({label: '🌓'}).showWidget();
+        new Darkmode({label: '🌓', left: '32px', right: 'unset'}).showWidget();
       }
       window.addEventListener('load', addDarkmodeWidget);"
     ),
