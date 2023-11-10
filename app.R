@@ -162,8 +162,8 @@ server <- function(input, output, session) {
     ))
   })
 
-  update_cols <- function(input) {
-    # hide columns in database
+  update_cols1 <- function(input) {
+    # hide columns in table1
     show_cols <- c()
     hide_cols <- c()
     for(name in names(input)[grep("-checkbox1", names(input), fixed = TRUE)]) {
@@ -177,11 +177,14 @@ server <- function(input, output, session) {
     }
     showCols(proxy1,
              unname(sapply(show_cols,
-                           function(x) which(x == colnames(data)) - 1)))
+                           function(x) which(x == colnames(shiny_schiz)) - 1)))
     hideCols(proxy1,
              unname(sapply(hide_cols,
-                           function(x) which(x == colnames(data)) - 1)))
-    # hide columns in second table
+                           function(x) which(x == colnames(shiny_schiz)) - 1)))
+  }
+
+  update_cols2 <- function(input) {
+    # hide columns in table2
     show_cols <- c()
     hide_cols <- c()
     for(name in names(input)[grep("-checkbox2", names(input), fixed = TRUE)]) {
@@ -195,10 +198,10 @@ server <- function(input, output, session) {
     }
     showCols(proxy2,
              unname(sapply(show_cols,
-                           function(x) which(x == colnames(data)) - 1)))
+                           function(x) which(x == colnames(shiny_schiz)) - 1)))
     hideCols(proxy2,
              unname(sapply(hide_cols,
-                           function(x) which(x == colnames(data)) - 1)))
+                           function(x) which(x == colnames(shiny_schiz)) - 1)))
   }
   
   # monitor numeric filters and show/hide NA checkboxes when not default
@@ -232,13 +235,26 @@ server <- function(input, output, session) {
   # monitor checkboxes and show/hide specified columns
   observeEvent(
     lapply(
-      names(input)[grep("checkbox", names(input))],
+      names(input)[grep("checkbox1", names(input))],
       function(name) {
         input[[name]]
       }
     ),
     {
-      update_cols(input)
+      update_cols1(input)
+    },
+    ignoreInit = TRUE
+  )
+  
+  observeEvent(
+    lapply(
+      names(input)[grep("checkbox2", names(input))],
+      function(name) {
+        input[[name]]
+      }
+    ),
+    {
+      update_cols2(input)
     },
     ignoreInit = TRUE
   )
@@ -360,7 +376,7 @@ server <- function(input, output, session) {
       }
     }
     # update columns based on checkboxes
-    update_cols(input)
+    update_cols1(input)
     # update male/female columns based on sex filter
     if (!is.null(input$Sex)) {
       if (! "male" %in% input$Sex) {
@@ -384,7 +400,7 @@ server <- function(input, output, session) {
   style = 'bootstrap',
   class = 'table-bordered stripe',
   selection = list(mode = "single", selected = NULL, target = "row", selectable = TRUE),
-  extensions = 'Buttons',
+  extensions = c("Buttons", "FixedColumns"),
   options = list(
     autoWidth = TRUE,
     columnDefs = list(list(width = '200px', targets = "_all")),
@@ -418,7 +434,8 @@ server <- function(input, output, session) {
                              }"),
            className = "hint--bottom-right hint--rounded hint--info",
            attr = list("aria-label" = "Download an empty copy of the below table in Excel format (only colomn headers)")
-      )
+      ),
+      list(extend = "fixedColumns", text = "Fixed First Column")
     ),
     rowCallback = JS(rowCallback), # formatting NAs
     infoCallback = JS(c(
@@ -441,7 +458,7 @@ server <- function(input, output, session) {
       }
     }
     # update columns based on checkboxes
-    update_cols(input)
+    update_cols2(input)
     data2
   },
   elementId = 'table2',
@@ -589,8 +606,12 @@ ui <- {
     page_navbar(bg = "#f7f6f4", gap = "15px",
       nav_panel("Database", layout_sidebar(
             fluidRow(DT::dataTableOutput('table1'),
-                     div(paste0("(", length(unique(shiny_schiz$Species)), " unique species)"),
-                         id = "species_count"), style = "width: 100%;"),
+                     div(
+                       div(paste0("(", length(unique(shiny_schiz$Species)), " unique species)"),
+                           id = "species_count", style = "float: left;"),
+                       div("Click a row to see the details for that row",
+                           style = "float: right; margin-top: -24px")
+                     ), style = "width: 100%;"),
             sidebar = sidebar(card(fluidRow(h4("Filters"),
                                   accordion(multiple = FALSE,
                                             accordion_panel(
