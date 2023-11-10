@@ -1,4 +1,4 @@
-// Shinylive 0.2.0
+// Shinylive 0.2.1
 // Copyright 2023 RStudio, PBC
 import {
   FCJSONtoFC,
@@ -11,6 +11,7 @@ import {
   __toESM,
   currentScriptDir,
   editorUrlPrefix,
+  engineSwitch,
   fileContentsToUrlString,
   isBinary,
   makeRandomKey,
@@ -20,7 +21,7 @@ import {
   sleep,
   stringToUint8Array,
   uint8ArrayToString
-} from "./chunk-3BYLEGTA.js";
+} from "./chunk-AW35JATS.js";
 
 // node_modules/scheduler/cjs/scheduler.development.js
 var require_scheduler_development = __commonJS({
@@ -33518,6 +33519,7 @@ async function initRShiny({
   if (!webRProxyHandle.ready) {
     throw new Error("webRProxyHandle is not ready");
   }
+  await webRProxyHandle.webRProxy.runRAsync('webr::install("renv")');
   await webRProxyHandle.webRProxy.runRAsync('webr::install("shiny")');
   await webRProxyHandle.webRProxy.runRAsync("library(shiny)");
   await webRProxyHandle.webRProxy.runRAsync("options(expressions=1000)");
@@ -33650,7 +33652,22 @@ var load_r_pre = `
   invisible(0)
 }
 
+.webr_pkg_cache <- list()
 .start_app <- function(appName, appDir) {
+
+  # Uniquely install packages with webr
+  unique_pkgs <- unique(renv::dependencies(appDir, quiet = TRUE)$Package)
+  lapply(unique_pkgs, function(pkg_name) {
+    if (isTRUE(.webr_pkg_cache[[pkg_name]])) return()
+
+    has_pkg <- nzchar(system.file(package = pkg_name))
+    .webr_pkg_cache[[pkg_name]] <<- has_pkg
+
+    if (!has_pkg) {
+      webr::install(pkg_name)
+    }
+  })
+
   app <- .shiny_to_httpuv(appDir)
   assign(appName, app, envir = .shiny_app_registry)
   invisible(0)
@@ -33873,7 +33890,7 @@ function HeaderBar({
     python: "https://shiny.posit.co/py/",
     r: "https://shiny.posit.co/"
   };
-  const shinyLogo = appEngine === "python" ? shiny_for_python_default : shiny_logo_default;
+  const shinyLogo = engineSwitch(appEngine, shiny_logo_default, shiny_for_python_default);
   return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "HeaderBar", children: [
     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("a", { className: "page-title", href: mainUrl[appEngine], children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("img", { className: "shiny-logo", src: shinyLogo, alt: "Shiny" }) }),
     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { children: [

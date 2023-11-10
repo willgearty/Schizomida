@@ -227,9 +227,14 @@ server <- function(input, output, session) {
   )
   
   # reset all filters if button is pressed
-  observeEvent(input$reset_input, {
-    reset("side-panel")
-    runjs("$('input[type=checkbox]:not([id$=NAs])').prop('checked', true).trigger('change')")
+  observeEvent(input$reset_input1, {
+    reset("side-panel1")
+    runjs("$('input[id$=checkbox1]').prop('checked', true).trigger('change')")
+  })
+
+  observeEvent(input$reset_input2, {
+    reset("side-panel2")
+    runjs("$('input[id$=checkbox2]').prop('checked', true).trigger('change')")
   })
   
   # monitor checkboxes and show/hide specified columns
@@ -791,10 +796,10 @@ ui <- {
                                   )
             )),
             div(style="text-align: center; padding-bottom: var(--bslib-sidebar-padding);",
-                add_prompt(actionButton("reset_input", HTML(paste(fa("rotate", prefer_type = "solid"), "Reset all filters")), width = "50%"),
+                add_prompt(actionButton("reset_input1", HTML(paste(fa("rotate", prefer_type = "solid"), "Reset all filters")), width = "50%"),
                            message = "Reset the table to its original form",
                            position = "top", type = "warning", rounded = TRUE)),
-            id = "side-panel"
+            id = "side-panel1"
             )
           )),
       nav_panel("Species Description History", layout_sidebar(
@@ -820,10 +825,10 @@ ui <- {
                                             )
             )),
             div(style="text-align: center; padding-bottom: var(--bslib-sidebar-padding);",
-                add_prompt(actionButton("reset_input", HTML(paste(fa("rotate", prefer_type = "solid"), "Reset all filters")), width = "50%"),
+                add_prompt(actionButton("reset_input2", HTML(paste(fa("rotate", prefer_type = "solid"), "Reset all filters")), width = "50%"),
                            message = "Reset the table to its original form",
                            position = "top", type = "warning", rounded = TRUE)),
-            id = "side-panel"
+            id = "side-panel2"
             )
           )),
       nav_panel(

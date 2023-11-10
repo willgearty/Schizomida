@@ -1,4 +1,4 @@
-// Shinylive 0.2.0
+// Shinylive 0.2.1
 // Copyright 2023 RStudio, PBC
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -3380,6 +3380,15 @@ function stringToUint8Array(s) {
   }
   return bytes;
 }
+function engineSwitch(engine, rValue, pythonValue) {
+  switch (engine) {
+    case "r":
+      return rValue;
+    case "python":
+    default:
+      return pythonValue;
+  }
+}
 
 // src/Components/filecontent.ts
 function FCJSONtoFC(x) {
@@ -3544,6 +3553,7 @@ export {
   isBinary,
   uint8ArrayToString,
   stringToUint8Array,
+  engineSwitch,
   FCJSONtoFC,
   FCorFCJSONtoFC,
   require_jsx_runtime,

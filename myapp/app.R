@@ -4,21 +4,15 @@
 
 # relevant packages ----
 library(shiny)
-webr::install('shinyjs')
 library(shinyjs)
-webr::install("dplyr")
 library(dplyr)
 #webr::install("openxlsx") # excel files don't work
 #library(openxlsx)
-webr::install("DT")
 library(DT)
-webr::install("janitor")
 library(janitor)
 library(htmltools)
 library(fontawesome)
-webr::install("prompter")
 library(prompter)
-webr::install("bslib")
 library(bslib)
 
 # copied from Hmisc

@@ -1,4 +1,4 @@
-// Shinylive 0.2.0
+// Shinylive 0.2.1
 // Copyright 2023 RStudio, PBC
 import {
   Icon,
@@ -18,7 +18,7 @@ import {
   require_jsx_runtime,
   require_react,
   stringToUint8Array
-} from "./chunk-3BYLEGTA.js";
+} from "./chunk-AW35JATS.js";
 
 // node_modules/events/events.js
 var require_events = __commonJS({
