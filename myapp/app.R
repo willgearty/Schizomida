@@ -428,29 +428,37 @@ server <- function(input, output, session) {
       list(extend = "copy", text = paste(fa("clipboard"),  "Copy"),
            exportOptions = list(columns = ":visible"),
            className = "hint--bottom-right hint--rounded hint--info",
-           attr = list("aria-label" = "Copy the below table to the clipboard")),
+           attr = list("aria-label" = "Copy the below table to the clipboard",
+                       "style" = "z-index: 9999;")),
       list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "CSV"),
            action = JS("function ( e, dt, node, config ) {
                                Shiny.setInputValue('downloadCSV', true, {priority: 'event'});
                              }"),
            className = "hint--bottom-right hint--rounded hint--info",
-           attr = list("aria-label" = "Download a copy of the below table in CSV format")
+           attr = list("aria-label" = "Download a copy of the below table in CSV format",
+                       "style" = "z-index: 9999;")
       ),
       list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "Excel"),
            action = JS("function ( e, dt, node, config ) {
                                Shiny.setInputValue('downloadExcel', true, {priority: 'event'});
                              }"),
            className = "hint--bottom-right hint--rounded hint--info",
-           attr = list("aria-label" = "Download a copy of the below table in Excel format")
+           attr = list("aria-label" = "Download a copy of the below table in Excel format",
+                       "style" = "z-index: 9999;")
       ),
       list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "Empty Excel"),
            action = JS("function ( e, dt, node, config ) {
                                Shiny.setInputValue('downloadEmptyExcel', true, {priority: 'event'});
                              }"),
            className = "hint--bottom-right hint--rounded hint--info",
-           attr = list("aria-label" = "Download an empty copy of the below table in Excel format (only colomn headers)")
+           attr = list("aria-label" = "Download an empty copy of the below table in Excel format (only colomn headers)",
+                       "style" = "z-index: 9999;")
       ),
-      list(extend = "fixedColumns", text = "Fixed First Column")
+      list(extend = "fixedColumns", text = "Freeze First Column",
+           className = "hint--bottom-right hint--rounded hint--info",
+           attr = list("aria-label" = "Freeze the first currently visible column",
+                       "style" = "z-index: 9999;")
+      )
     ),
     rowCallback = JS(rowCallback), # formatting NAs
     infoCallback = JS(c(
