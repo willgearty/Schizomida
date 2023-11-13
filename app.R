@@ -98,7 +98,9 @@ tab_layout <- withTags(table(
       th(cols$cat[ref_col], rowspan = 2)
     ),
     tr(
-      lapply(cols$col[-double_row], th)
+      lapply((1:nrow(cols))[-double_row], function(i) {
+        th(cols$col[i], id = paste0(cols$col_clean[i], "-th"), style = "cursor: pointer;")
+      })
     )
   )
 ))
@@ -161,18 +163,25 @@ server <- function(input, output, session) {
       easyClose = TRUE
     ))
   })
+  
+  # modal popup when clicking on a column header
+  lapply((1:nrow(cols))[-double_row], function(i) {
+    onclick(paste0(cols$col_clean[i], "-th"),
+            showModal(modalDialog(title = cols$col[i], "figure goes here",
+                                  size = "l", easyClose = TRUE)))
+  })
 
-  update_cols1 <- function(input) {
+  # update all table1 columns based on checkboxes
+  checkbox1_rows <- which(cols$tab %in% 1:5 & !cols$dupe)
+  update_cols1 <- function() {
     # hide columns in table1
     show_cols <- c()
     hide_cols <- c()
-    for(name in names(input)[grep("-checkbox1", names(input), fixed = TRUE)]) {
-      # convert to unclean name
-      name_unclean <- cols$col[grep(gsub("-checkbox1", "", name), cols$col_clean)]
-      if(input[[name]]) {
-        show_cols <- c(show_cols, name_unclean)
+    for (i in checkbox1_rows) {
+      if (input[[paste0(cols$filt_clean[i], "-checkbox1")]]) {
+        show_cols <- c(show_cols, cols$filt[i])
       } else {
-        hide_cols <- c(hide_cols, name_unclean)
+        hide_cols <- c(hide_cols, cols$filt[i])
       }
     }
     showCols(proxy1,
@@ -182,18 +191,30 @@ server <- function(input, output, session) {
              unname(sapply(hide_cols,
                            function(x) which(x == colnames(shiny_schiz)) - 1)))
   }
+  
+  # monitor checkboxes for table1
+  lapply(checkbox1_rows, function(i) {
+    observeEvent(input[[paste0(cols$filt_clean[i], "-checkbox1")]],
+      if (input[[paste0(cols$filt_clean[i], "-checkbox1")]]) {
+        showCols(proxy1, which(cols$filt[i] == colnames(shiny_schiz)) - 1)
+      } else {
+        showCols(proxy1, which(cols$filt[i] == colnames(shiny_schiz)) - 1)
+      },
+      ignoreInit = TRUE
+    )
+  })
 
-  update_cols2 <- function(input) {
+  # update all table2 columns based on checkboxes
+  checkbox2_rows <- which(cols$col %in% c("Family", "Subfamily", "Genus", "Species"))
+  update_cols2 <- function() {
     # hide columns in table2
     show_cols <- c()
     hide_cols <- c()
-    for(name in names(input)[grep("-checkbox2", names(input), fixed = TRUE)]) {
-      # convert to unclean name
-      name_unclean <- cols$col[grep(gsub("-checkbox2", "", name), cols$col_clean)]
-      if(input[[name]]) {
-        show_cols <- c(show_cols, name_unclean)
+    for (i in checkbox2_rows) {
+      if (input[[paste0(cols$filt_clean[i], "-checkbox2")]]) {
+        show_cols <- c(show_cols, cols$filt[i])
       } else {
-        hide_cols <- c(hide_cols, name_unclean)
+        hide_cols <- c(hide_cols, cols$filt[i])
       }
     }
     showCols(proxy2,
@@ -203,6 +224,18 @@ server <- function(input, output, session) {
              unname(sapply(hide_cols,
                            function(x) which(x == colnames(shiny_schiz)) - 1)))
   }
+
+  # monitor checkboxes for table2
+  lapply(checkbox2_rows, function(i) {
+    observeEvent(input[[paste0(cols$filt_clean[i], "-checkbox2")]],
+                 if (input[[paste0(cols$filt_clean[i], "-checkbox2")]]) {
+                   showCols(proxy1, which(cols$filt[i] == colnames(shiny_schiz)) - 1)
+                 } else {
+                   showCols(proxy1, which(cols$filt[i] == colnames(shiny_schiz)) - 1)
+                 },
+                 ignoreInit = TRUE
+    )
+  })
   
   # monitor numeric filters and show/hide NA checkboxes when not default
   observeEvent(
@@ -236,33 +269,6 @@ server <- function(input, output, session) {
     reset("side-panel2")
     runjs("$('input[id$=checkbox2]').prop('checked', true).trigger('change')")
   })
-  
-  # monitor checkboxes and show/hide specified columns
-  observeEvent(
-    lapply(
-      names(input)[grep("checkbox1", names(input))],
-      function(name) {
-        input[[name]]
-      }
-    ),
-    {
-      update_cols1(input)
-    },
-    ignoreInit = TRUE
-  )
-  
-  observeEvent(
-    lapply(
-      names(input)[grep("checkbox2", names(input))],
-      function(name) {
-        input[[name]]
-      }
-    ),
-    {
-      update_cols2(input)
-    },
-    ignoreInit = TRUE
-  )
   
   js_export <- function(format = 'xlsx', empty = FALSE) {
     paste0("
@@ -381,7 +387,7 @@ server <- function(input, output, session) {
       }
     }
     # update columns based on checkboxes
-    update_cols1(input)
+    update_cols1()
     # update male/female columns based on sex filter
     if (!is.null(input$Sex)) {
       if (! "male" %in% input$Sex) {
@@ -408,7 +414,9 @@ server <- function(input, output, session) {
   extensions = c("Buttons", "FixedColumns"),
   options = list(
     autoWidth = TRUE,
-    columnDefs = list(list(width = '200px', targets = "_all")),
+    ordering = TRUE,
+    columnDefs = list(list(width = '200px', targets = "_all"),
+                      list(orderable = FALSE, targets = 5:(ncol(shiny_schiz) - 1))),
     scrollX = TRUE,
     scrollY = TRUE,
     scrollCollapse = TRUE,
@@ -419,14 +427,14 @@ server <- function(input, output, session) {
            exportOptions = list(columns = ":visible"),
            className = "hint--bottom-right hint--rounded hint--info",
            attr = list("aria-label" = "Copy the below table to the clipboard",
-                       "style" = "z-index: 9999;")),
+                       "style" = "z-index: 10;")),
       list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "CSV"),
            action = JS("function ( e, dt, node, config ) {
                                Shiny.setInputValue('downloadCSV', true, {priority: 'event'});
                              }"),
            className = "hint--bottom-right hint--rounded hint--info",
            attr = list("aria-label" = "Download a copy of the below table in CSV format",
-                       "style" = "z-index: 9999;")
+                       "style" = "z-index: 10;")
       ),
       list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "Excel"),
            action = JS("function ( e, dt, node, config ) {
@@ -434,7 +442,7 @@ server <- function(input, output, session) {
                              }"),
            className = "hint--bottom-right hint--rounded hint--info",
            attr = list("aria-label" = "Download a copy of the below table in Excel format",
-                       "style" = "z-index: 9999;")
+                       "style" = "z-index: 10;")
       ),
       list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "Empty Excel"),
            action = JS("function ( e, dt, node, config ) {
@@ -442,12 +450,12 @@ server <- function(input, output, session) {
                              }"),
            className = "hint--bottom-right hint--rounded hint--info",
            attr = list("aria-label" = "Download an empty copy of the below table in Excel format (only colomn headers)",
-                       "style" = "z-index: 9999;")
+                       "style" = "z-index: 10;")
       ),
       list(extend = "fixedColumns", text = "Freeze First Column",
            className = "hint--bottom-right hint--rounded hint--info",
            attr = list("aria-label" = "Freeze the first currently visible column",
-                       "style" = "z-index: 9999;")
+                       "style" = "z-index: 10;")
       )
     ),
     rowCallback = JS(rowCallback), # formatting NAs
@@ -471,7 +479,7 @@ server <- function(input, output, session) {
       }
     }
     # update columns based on checkboxes
-    update_cols2(input)
+    update_cols2()
     data2
   },
   elementId = 'table2',
@@ -622,8 +630,8 @@ ui <- {
                      div(
                        div(paste0("(", length(unique(shiny_schiz$Species)), " unique species)"),
                            id = "species_count", style = "float: left;"),
-                       div("Click a row for a species summary",
-                           style = "float: right; margin-top: -24px")
+                       div(HTML("Click a character column header for a figure of the character<br />Click a row for a species summary"),
+                           style = "float: right; margin-top: -24px; text-align: right;")
                      ), style = "width: 100%;"),
             sidebar = sidebar(card(fluidRow(h4("Filters"),
                                   accordion(multiple = FALSE,
@@ -839,6 +847,10 @@ ui <- {
             id = "side-panel2"
             )
           )),
+      nav_panel(
+        "Schizomid General Anatomy",
+        div(style = "overflow-y: scroll; height: calc(90vh - 120px); height: calc(90dvh - 120px);")
+      ),
       nav_panel(
             "Full References",
             div(references_html, style = "overflow-y: scroll; height: calc(90vh - 120px); height: calc(90dvh - 120px);")
