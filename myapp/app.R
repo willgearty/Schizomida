@@ -624,7 +624,7 @@ ui <- {
                            div(
                              div(paste0("(", length(unique(shiny_schiz$Species)), " unique species)"),
                                  id = "species_count", style = "float: left;"),
-                             div("Click a row to see the details for that row",
+                             div("Click a row for a species summary",
                                  style = "float: right; margin-top: -24px")
                            ), style = "width: 100%;"),
                   sidebar = sidebar(card(fluidRow(h4("Filters"),
