@@ -124,6 +124,8 @@ server <- function(input, output, session) {
   proxy2 <- dataTableProxy('table2')
   
   # observers ----
+  ## modal popups ----
+  ### row selection ----
   # modal popup when selecting a row
   observeEvent(input$table1_rows_selected, {
     data <- shiny_schiz
@@ -164,6 +166,7 @@ server <- function(input, output, session) {
     ))
   })
   
+  ### header selection ----
   # modal popup when clicking on a column header
   lapply((1:nrow(cols))[-double_row], function(i) {
     onclick(paste0(cols$col_clean[i], "-th"),
@@ -171,6 +174,8 @@ server <- function(input, output, session) {
                                   size = "l", easyClose = TRUE)))
   })
 
+  ## show/hide columns ----
+  ### table 1 ----
   # update all table1 columns based on checkboxes
   checkbox1_rows <- which(cols$tab %in% 1:5 & !cols$dupe)
   update_cols1 <- function() {
@@ -206,6 +211,7 @@ server <- function(input, output, session) {
     )
   })
 
+  ### table 2 ----
   # update all table2 columns based on checkboxes
   checkbox2_rows <- which(cols$col %in% c("Family", "Subfamily", "Genus", "Species"))
   update_cols2 <- function() {
@@ -239,6 +245,7 @@ server <- function(input, output, session) {
     )
   })
   
+  ## numeric filters ----
   # monitor numeric filters and show/hide NA checkboxes when not default
   observeEvent(
     lapply(
@@ -261,6 +268,7 @@ server <- function(input, output, session) {
     ignoreInit = TRUE
   )
   
+  ## reset buttons ----
   # reset all filters if button is pressed
   observeEvent(input$reset_input1, {
     reset("side-panel1")
@@ -272,6 +280,8 @@ server <- function(input, output, session) {
     runjs("$('input[id$=checkbox2]').prop('checked', true).trigger('change')")
   })
   
+  ## export buttons ----
+  ### excel ----
   js_export <- function(format = 'xlsx', empty = FALSE) {
     paste0("
     $('.buttons-collection').prop('disabled', true);
@@ -298,16 +308,20 @@ server <- function(input, output, session) {
     runjs(js_export())
   })
   
+  ### csv ----
   # trigger csv file download
   observeEvent(input$downloadCSV, {
     runjs(js_export("csv"))
   })
   
+  ### empty excel ----
   # trigger empty excel file download
   observeEvent(input$downloadEmptyExcel, {
     runjs(js_export(empty = TRUE))
   })
   
+  ## taxonomy filters ----
+  ### table 1 ----
   # update subfamily if family is changed
   observeEvent(list(input$Family), {
     dat <- shiny_schiz
@@ -315,7 +329,7 @@ server <- function(input, output, session) {
     choices <- sort(unique(as.character(dat$Subfamily)))
     updateSelectizeInput(inputId = "Subfamily", choices = choices, server = TRUE)
   }, ignoreNULL = FALSE, ignoreInit = TRUE)
-  
+
   # update genus if family/subfamily is changed
   observeEvent(list(input$Family, input$Subfamily), {
     dat <- shiny_schiz
@@ -324,7 +338,7 @@ server <- function(input, output, session) {
     choices <- sort(unique(as.character(dat$Genus)))
     updateSelectizeInput(inputId = "Genus", choices = choices, server = TRUE)
   }, ignoreNULL = FALSE, ignoreInit = TRUE)
-  
+
   # update species if family/subfamily/genus is changed
   observeEvent(list(input$Family, input$Subfamily, input$Genus), {
     dat <- shiny_schiz
@@ -334,8 +348,8 @@ server <- function(input, output, session) {
     choices <- sort(unique(as.character(dat$Species)))
     updateSelectizeInput(inputId = "Species", choices = choices, server = TRUE)
   }, ignoreNULL = FALSE)
-  
-  # update sex if family/subfamily/genus/species is changed
+
+  # update sex and character filters if family/subfamily/genus/species is changed
   observeEvent(list(input$Family, input$Subfamily, input$Genus, input$Species), {
     dat <- shiny_schiz
     if (!is.null(input$Family)) dat <- dat %>% filter(Family %in% input$Family)
@@ -344,8 +358,45 @@ server <- function(input, output, session) {
     if (!is.null(input$Species)) dat <- dat %>% filter(Species %in% input$Species)
     choices <- sort(unique(as.character(dat$Sex)))
     updateSelectizeInput(inputId = "Sex", choices = choices, server = TRUE)
+    
+    # update other character filters
+    for (i in which(cols$tab %in% 2:6 & !cols$dupe & sapply(shiny_schiz, Negate(is.numeric)))) {
+      if (!is.numeric(dat[[cols$col[i]]])) {
+        choices <- sort(unique(as.character(dat[[cols$filt[i]]])))
+        updateSelectizeInput(inputId = cols$filt_clean[i], choices = choices,
+                             selected = input[[cols$filt_clean[i]]], server = TRUE)
+      }
+    }
   }, ignoreNULL = FALSE, ignoreInit = TRUE)
   
+  ### table 2 ----
+  observeEvent(list(input$Family2), {
+    dat <- taxonomy_syn
+    if (!is.null(input$Family2)) dat <- dat %>% filter(Family %in% input$Family2)
+    choices <- sort(unique(as.character(taxonomy_syn$Subfamily)))
+    updateSelectizeInput(inputId = "Subfamily2", choices = choices, server = TRUE)
+  }, ignoreNULL = FALSE, ignoreInit = TRUE)
+  
+  # update genus if family/subfamily is changed
+  observeEvent(list(input$Family2, input$Subfamily2), {
+    dat <- taxonomy_syn
+    if (!is.null(input$Family2)) dat <- dat %>% filter(Family %in% input$Family2)
+    if (!is.null(input$Subfamily2)) dat <- dat %>% filter(Subfamily %in% input$Subfamily2)
+    choices <- sort(unique(as.character(dat$Genus)))
+    updateSelectizeInput(inputId = "Genus2", choices = choices, server = TRUE)
+  }, ignoreNULL = FALSE, ignoreInit = TRUE)
+  
+  # update species if family/subfamily/genus is changed
+  observeEvent(list(input$Family2, input$Subfamily2, input$Genus2), {
+    dat <- taxonomy_syn
+    if (!is.null(input$Family2)) dat <- dat %>% filter(Family %in% input$Family2)
+    if (!is.null(input$Subfamily2)) dat <- dat %>% filter(Subfamily %in% input$Subfamily2)
+    if (!is.null(input$Genus2)) dat <- dat %>% filter(Genus %in% input$Genus2)
+    choices <- sort(unique(as.character(dat$Species)))
+    updateSelectizeInput(inputId = "Species2", choices = choices, server = TRUE)
+  }, ignoreNULL = FALSE)
+  
+  ## show/hide filters ----
   # update male/female filters when sex is changed
   observeEvent(input$Sex, {
     sapply(idEscape(male_names), showElement)
@@ -360,7 +411,7 @@ server <- function(input, output, session) {
     }
   }, ignoreNULL = FALSE)
   
-  # data tables ----
+  # datatables ----
   ## data table ----
   ### setup reactive data ----
   df <- eventReactive(
@@ -396,21 +447,6 @@ server <- function(input, output, session) {
           }
         }
       }
-      # update male/female columns based on sex filter
-      if (!is.null(input$Sex)) {
-        if (! "male" %in% input$Sex) {
-          hideCols(proxy1,
-                   unname(sapply(male_names,
-                                 function(x) which(x == colnames(data)) - 1)))
-        }
-        if (! "female" %in% input$Sex) {
-          hideCols(proxy1,
-                   unname(sapply(female_names,
-                                 function(x) which(x == colnames(data)) - 1)))
-        }
-      }
-      # update unique species count
-      runjs(paste0("$('#species_count').html('(", length(unique(data$Species)), " unique species)')"))
       data
     }
   )
@@ -418,7 +454,12 @@ server <- function(input, output, session) {
   ### render table ----
   # lots of options available: https://datatables.net/reference/option/
   output$table1 <- DT::renderDataTable(DT::datatable(
-    df(),
+    {
+      data <- df()
+      # update unique species count
+      runjs(paste0("$('#species_count').html('(", length(unique(data$Species)), " unique species)')"))
+      data
+    },
     container = tab_layout,
     rownames = FALSE,
     elementId = 'table1',
@@ -483,8 +524,25 @@ server <- function(input, output, session) {
       formatStyle('Species', fontStyle = "italic"))
   
   ### update columns ----
-  # update columns based on checkboxes
-  observeEvent(df(), update_cols1())
+  # update columns based on checkboxes and filters
+  observeEvent(
+    df(),
+    {
+      update_cols1()
+      # update male/female columns based on sex filter
+      if (!is.null(input$Sex)) {
+        if (! "male" %in% input$Sex) {
+          hideCols(proxy1,
+                   unlist(unname(sapply(male_names,
+                                        function(x) which(x == colnames(shiny_schiz)) - 1))))
+        }
+        if (! "female" %in% input$Sex) {
+          hideCols(proxy1,
+                   unlist(unname(sapply(female_names,
+                                        function(x) which(x == colnames(shiny_schiz)) - 1))))
+        }
+      }
+    })
   
   ## tax. and syn. table ----
   ### setup reactive data ----
@@ -556,12 +614,12 @@ server <- function(input, output, session) {
 }
 
 # ui.R ----
-# process inputs
 ui <- {
   fluidPage(
     theme = bs_theme(version = 5),
     useShinyjs(),
     use_prompt(),
+    ## head ----
     tags$head(
       tags$style(
         HTML(
@@ -655,8 +713,11 @@ ui <- {
       }
       window.addEventListener('load', addDarkmodeWidget);"
     ),
+    ## title ----
     titlePanel('Schizomida Trait Data Base (STDB)'),
+    ## panels ----
     page_navbar(bg = "#f7f6f4", gap = "15px",
+      ### database ----
       nav_panel("Database", layout_sidebar(
             fluidRow(DT::dataTableOutput('table1'),
                      div(
@@ -665,6 +726,7 @@ ui <- {
                        div(HTML("Click a character column header for a figure of the character<br />Click a row for a species summary"),
                            style = "float: right; margin-top: -24px; text-align: right;")
                      ), style = "width: 100%;"),
+            #### filters ----
             sidebar = sidebar(card(fluidRow(h4("Filters"),
                                   accordion(multiple = FALSE,
                                             accordion_panel(
@@ -843,6 +905,7 @@ ui <- {
                                             )
                                   )
             )),
+            #### reset button ----
             div(style="text-align: center; padding-bottom: var(--bslib-sidebar-padding);",
                 add_prompt(actionButton("reset_input1", HTML(paste(fa("rotate", prefer_type = "solid"), "Reset all filters")), width = "50%"),
                            message = "Reset the table to its original form",
@@ -850,8 +913,10 @@ ui <- {
             id = "side-panel1"
             )
           )),
+      ### species hist. ----
       nav_panel("Species Description History", layout_sidebar(
             fluidRow(DT::dataTableOutput('table2'), style = "width: 100%;"),
+            #### filters ----
             sidebar = sidebar(card(fluidRow(h2("Filters"),
                                             accordion(multiple = FALSE,
                                                       accordion_panel(
@@ -872,6 +937,7 @@ ui <- {
                                                       )
                                             )
             )),
+            #### reset button ----
             div(style="text-align: center; padding-bottom: var(--bslib-sidebar-padding);",
                 add_prompt(actionButton("reset_input2", HTML(paste(fa("rotate", prefer_type = "solid"), "Reset all filters")), width = "50%"),
                            message = "Reset the table to its original form",
@@ -879,14 +945,17 @@ ui <- {
             id = "side-panel2"
             )
           )),
+      ### general anatomy ----
       nav_panel(
         "Schizomid General Anatomy",
         div(style = "overflow-y: scroll; height: calc(90vh - 120px); height: calc(90dvh - 120px);")
       ),
+      ### references ----
       nav_panel(
             "Full References",
             div(references_html, style = "overflow-y: scroll; height: calc(90vh - 120px); height: calc(90dvh - 120px);")
           ),
+      ### about ----
       nav_panel(
             "About and Contact",
             div(about_html, style = "overflow-y: scroll; height: calc(90vh - 120px); height: calc(90dvh - 120px);")
