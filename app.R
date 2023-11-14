@@ -194,12 +194,14 @@ server <- function(input, output, session) {
   
   # monitor checkboxes for table1
   lapply(checkbox1_rows, function(i) {
-    observeEvent(input[[paste0(cols$filt_clean[i], "-checkbox1")]],
+    observeEvent(
+      input[[paste0(cols$filt_clean[i], "-checkbox1")]],
+      {
       if (input[[paste0(cols$filt_clean[i], "-checkbox1")]]) {
         showCols(proxy1, which(cols$filt[i] == colnames(shiny_schiz)) - 1)
       } else {
-        showCols(proxy1, which(cols$filt[i] == colnames(shiny_schiz)) - 1)
-      },
+        hideCols(proxy1, which(cols$filt[i] == colnames(shiny_schiz)) - 1)
+      }},
       ignoreInit = TRUE
     )
   })
@@ -229,9 +231,9 @@ server <- function(input, output, session) {
   lapply(checkbox2_rows, function(i) {
     observeEvent(input[[paste0(cols$filt_clean[i], "-checkbox2")]],
                  if (input[[paste0(cols$filt_clean[i], "-checkbox2")]]) {
-                   showCols(proxy1, which(cols$filt[i] == colnames(shiny_schiz)) - 1)
+                   showCols(proxy2, which(cols$filt[i] == colnames(shiny_schiz)) - 1)
                  } else {
-                   showCols(proxy1, which(cols$filt[i] == colnames(shiny_schiz)) - 1)
+                   hideCols(proxy2, which(cols$filt[i] == colnames(shiny_schiz)) - 1)
                  },
                  ignoreInit = TRUE
     )
@@ -359,168 +361,198 @@ server <- function(input, output, session) {
   }, ignoreNULL = FALSE)
   
   # data tables ----
-  # lots of options available: https://datatables.net/reference/option/
-  output$table1 <- DT::renderDataTable(DT::datatable({
-    data <- shiny_schiz
-    for (i in seq_len(nrow(cols))) {
-      input_value <- input[[cols$filt_clean[i]]]
-      if (!is.null(input_value)) {
-        if (is.numeric(shiny_schiz[[cols$col[i]]])) {
-          min_val <- min(shiny_schiz[[cols$col[i]]], na.rm = TRUE)
-          max_val <- max(shiny_schiz[[cols$col[i]]], na.rm = TRUE)
-          if (input_value[1] > min_val | input_value[2] < max_val) {
-            if (input[[paste0(cols$filt_clean[i], "-NAs")]]) {
-              data <- data %>%
-                filter((!!as.symbol(cols$col[i]) >= input_value[1] & 
-                          !!as.symbol(cols$col[i]) <= input_value[2]) |
-                         is.na(!!as.symbol(cols$col[i])))
-            } else {
-              data <- data %>%
-                filter(!!as.symbol(cols$col[i]) >= input_value[1],
-                       !!as.symbol(cols$col[i]) <= input_value[2])
+  ## data table ----
+  ### setup reactive data ----
+  df <- eventReactive(
+    lapply(
+      cols$filt_clean,
+      function(name) {
+        input[[name]]
+      }
+    ),
+    {
+      data <- shiny_schiz
+      for (i in seq_len(nrow(cols))) {
+        input_value <- input[[cols$filt_clean[i]]]
+        if (!is.null(input_value)) {
+          if (is.numeric(shiny_schiz[[cols$col[i]]])) {
+            min_val <- min(shiny_schiz[[cols$col[i]]], na.rm = TRUE)
+            max_val <- max(shiny_schiz[[cols$col[i]]], na.rm = TRUE)
+            if (input_value[1] > min_val | input_value[2] < max_val) {
+              if (input[[paste0(cols$filt_clean[i], "-NAs")]]) {
+                data <- data %>%
+                  filter((!!as.symbol(cols$col[i]) >= input_value[1] & 
+                            !!as.symbol(cols$col[i]) <= input_value[2]) |
+                           is.na(!!as.symbol(cols$col[i])))
+              } else {
+                data <- data %>%
+                  filter(!!as.symbol(cols$col[i]) >= input_value[1],
+                         !!as.symbol(cols$col[i]) <= input_value[2])
+              }
             }
+          } else {
+            data <- data %>%
+              filter(!!as.symbol(cols$col[i]) %in% input_value)
           }
-        } else {
-          data <- data %>%
-            filter(!!as.symbol(cols$col[i]) %in% input_value)
         }
       }
-    }
-    # update columns based on checkboxes
-    update_cols1()
-    # update male/female columns based on sex filter
-    if (!is.null(input$Sex)) {
-      if (! "male" %in% input$Sex) {
-        hideCols(proxy1,
-                 unname(sapply(male_names,
-                               function(x) which(x == colnames(data)) - 1)))
+      # update male/female columns based on sex filter
+      if (!is.null(input$Sex)) {
+        if (! "male" %in% input$Sex) {
+          hideCols(proxy1,
+                   unname(sapply(male_names,
+                                 function(x) which(x == colnames(data)) - 1)))
+        }
+        if (! "female" %in% input$Sex) {
+          hideCols(proxy1,
+                   unname(sapply(female_names,
+                                 function(x) which(x == colnames(data)) - 1)))
+        }
       }
-      if (! "female" %in% input$Sex) {
-        hideCols(proxy1,
-                 unname(sapply(female_names,
-                               function(x) which(x == colnames(data)) - 1)))
-      }
+      # update unique species count
+      runjs(paste0("$('#species_count').html('(", length(unique(data$Species)), " unique species)')"))
+      data
     }
-    # update unique species count
-    runjs(paste0("$('#species_count').html('(", length(unique(data$Species)), " unique species)')"))
-    data
-  },
-  container = tab_layout,
-  rownames = FALSE,
-  elementId = 'table1',
-  style = 'bootstrap',
-  class = 'table-bordered stripe',
-  selection = list(mode = "single", selected = NULL, target = "row", selectable = TRUE),
-  extensions = c("Buttons", "FixedColumns"),
-  options = list(
-    autoWidth = TRUE,
-    ordering = TRUE,
-    columnDefs = list(list(width = '200px', targets = "_all"),
-                      list(orderable = FALSE, targets = 5:(ncol(shiny_schiz) - 1))),
-    scrollX = TRUE,
-    scrollY = TRUE,
-    scrollCollapse = TRUE,
-    paging = FALSE,
-    dom = 'Bfrti',
-    buttons = list(
-      list(extend = "copy", text = paste(fa("clipboard"),  "Copy"),
-           exportOptions = list(columns = ":visible"),
-           className = "hint--bottom-right hint--rounded hint--info",
-           attr = list("aria-label" = "Copy the below table to the clipboard",
-                       "style" = "z-index: 10;")),
-      list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "CSV"),
-           action = JS("function ( e, dt, node, config ) {
-                               Shiny.setInputValue('downloadCSV', true, {priority: 'event'});
-                             }"),
-           className = "hint--bottom-right hint--rounded hint--info",
-           attr = list("aria-label" = "Download a copy of the below table in CSV format",
-                       "style" = "z-index: 10;")
+  )
+
+  ### render table ----
+  # lots of options available: https://datatables.net/reference/option/
+  output$table1 <- DT::renderDataTable(DT::datatable(
+    df(),
+    container = tab_layout,
+    rownames = FALSE,
+    elementId = 'table1',
+    style = 'bootstrap',
+    class = 'table-bordered stripe',
+    selection = list(mode = "single", selected = NULL, target = "row", selectable = TRUE),
+    extensions = c("Buttons", "FixedColumns"),
+    options = list(
+      autoWidth = TRUE,
+      ordering = TRUE,
+      columnDefs = list(list(width = '200px', targets = "_all"),
+                        list(orderable = FALSE, targets = 5:(ncol(shiny_schiz) - 1))),
+      scrollX = TRUE,
+      scrollY = TRUE,
+      scrollCollapse = TRUE,
+      paging = FALSE,
+      dom = 'Bfrti',
+      buttons = list(
+        list(extend = "copy", text = paste(fa("clipboard"),  "Copy"),
+             exportOptions = list(columns = ":visible"),
+             className = "hint--bottom-right hint--rounded hint--info",
+             attr = list("aria-label" = "Copy the below table to the clipboard",
+                         "style" = "z-index: 10;")),
+        list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "CSV"),
+             action = JS("function ( e, dt, node, config ) {
+                                 Shiny.setInputValue('downloadCSV', true, {priority: 'event'});
+                               }"),
+             className = "hint--bottom-right hint--rounded hint--info",
+             attr = list("aria-label" = "Download a copy of the below table in CSV format",
+                         "style" = "z-index: 10;")
+        ),
+        list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "Excel"),
+             action = JS("function ( e, dt, node, config ) {
+                                 Shiny.setInputValue('downloadExcel', true, {priority: 'event'});
+                               }"),
+             className = "hint--bottom-right hint--rounded hint--info",
+             attr = list("aria-label" = "Download a copy of the below table in Excel format",
+                         "style" = "z-index: 10;")
+        ),
+        list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "Empty Excel"),
+             action = JS("function ( e, dt, node, config ) {
+                                 Shiny.setInputValue('downloadEmptyExcel', true, {priority: 'event'});
+                               }"),
+             className = "hint--bottom-right hint--rounded hint--info",
+             attr = list("aria-label" = "Download an empty copy of the below table in Excel format (only colomn headers)",
+                         "style" = "z-index: 10;")
+        ),
+        list(extend = "fixedColumns", text = "Freeze First Column",
+             className = "hint--bottom-right hint--rounded hint--info",
+             attr = list("aria-label" = "Freeze the first currently visible column",
+                         "style" = "z-index: 10;")
+        )
       ),
-      list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "Excel"),
-           action = JS("function ( e, dt, node, config ) {
-                               Shiny.setInputValue('downloadExcel', true, {priority: 'event'});
-                             }"),
-           className = "hint--bottom-right hint--rounded hint--info",
-           attr = list("aria-label" = "Download a copy of the below table in Excel format",
-                       "style" = "z-index: 10;")
-      ),
-      list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "Empty Excel"),
-           action = JS("function ( e, dt, node, config ) {
-                               Shiny.setInputValue('downloadEmptyExcel', true, {priority: 'event'});
-                             }"),
-           className = "hint--bottom-right hint--rounded hint--info",
-           attr = list("aria-label" = "Download an empty copy of the below table in Excel format (only colomn headers)",
-                       "style" = "z-index: 10;")
-      ),
-      list(extend = "fixedColumns", text = "Freeze First Column",
-           className = "hint--bottom-right hint--rounded hint--info",
-           attr = list("aria-label" = "Freeze the first currently visible column",
-                       "style" = "z-index: 10;")
-      )
-    ),
-    rowCallback = JS(rowCallback), # formatting NAs
-    infoCallback = JS(c(
-      "function( settings, start, end, max, total, pre ) {",
-      "  return 'Showing ' + total + ' entries';",
-      "}"
-    )) # for formatting the info below the table
-  )) %>%
-    formatStyle('Genus', fontStyle = "italic") %>%
-    formatStyle('Species', fontStyle = "italic"))
+      rowCallback = JS(rowCallback), # formatting NAs
+      infoCallback = JS(c(
+        "function( settings, start, end, max, total, pre ) {",
+        "  return 'Showing ' + total + ' entries';",
+        "}"
+      )) # for formatting the info below the table
+    )) %>%
+      formatStyle('Genus', fontStyle = "italic") %>%
+      formatStyle('Species', fontStyle = "italic"))
   
-  # tax. and syn. table ----
-  output$table2 <- DT::renderDataTable(DT::datatable({
-    data2 <- taxonomy_syn
-    for (col in c("Family", "Subfamily", "Genus", "Species")) {
-      input_value <- input[[paste0(col, "2")]]
-      if (!is.null(input_value)) {
-        data2 <- data2 %>%
-          filter(grepl(input_value, !!as.symbol(col), fixed = TRUE))
+  ### update columns ----
+  # update columns based on checkboxes
+  observeEvent(df(), update_cols1())
+  
+  ## tax. and syn. table ----
+  ### setup reactive data ----
+  df2 <- eventReactive(
+    lapply(
+      c("Family", "Subfamily", "Genus", "Species"),
+      function(name) {
+        input[[paste0(name, "2")]]
       }
-    }
-    # update columns based on checkboxes
-    update_cols2()
-    data2
-  },
-  elementId = 'table2',
-  rownames = FALSE,
-  style = 'bootstrap',
-  class = 'table-bordered stripe',
-  selection = 'none',
-  extensions = 'Buttons',
-  options = list(
-    scrollX = TRUE,
-    scrollY = TRUE,
-    scrollCollapse = TRUE,
-    paging = FALSE,
-    dom = 'Bfrti',
-    buttons = list(
-      list(extend = "copy", text = paste(fa("clipboard"),  "Copy"),
-           exportOptions = list(columns = ":visible"),
-           className = "hint--bottom-right hint--rounded hint--info",
-           attr = list("aria-label" = "Copy the below table to the clipboard")),
-      list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "CSV"),
-           action = JS("function ( e, dt, node, config ) {
-                               Shiny.setInputValue('downloadCSV', true, {priority: 'event'});
-                             }"),
-           className = "hint--bottom-right hint--rounded hint--info",
-           attr = list("aria-label" = "Download a copy of the below table in CSV format")
-      ),
-      list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "Excel"),
-           action = JS("function ( e, dt, node, config ) {
-                               Shiny.setInputValue('downloadExcel', true, {priority: 'event'});
-                             }"),
-           className = "hint--bottom-right hint--rounded hint--info",
-           attr = list("aria-label" = "Download a copy of the below table in Excel format")
-      )
     ),
-    rowCallback = JS(rowCallback), # formatting NAs
-    infoCallback = JS(c(
-      "function( settings, start, end, max, total, pre ) {",
-      "  return 'Showing ' + total + ' species';",
-      "}"
-    )) # for formatting the info below the table
-  )))
+    {
+      data2 <- taxonomy_syn
+      for (col in c("Family", "Subfamily", "Genus", "Species")) {
+        input_value <- input[[paste0(col, "2")]]
+        if (!is.null(input_value)) {
+          data2 <- data2 %>%
+            filter(grepl(input_value, !!as.symbol(col), fixed = TRUE))
+        }
+      }
+      data2
+    })
+
+  ### render table ----
+  # lots of options available: https://datatables.net/reference/option/
+  output$table2 <- DT::renderDataTable(DT::datatable(
+    df2(),
+    elementId = 'table2',
+    rownames = FALSE,
+    style = 'bootstrap',
+    class = 'table-bordered stripe',
+    selection = 'none',
+    extensions = 'Buttons',
+    options = list(
+      scrollX = TRUE,
+      scrollY = TRUE,
+      scrollCollapse = TRUE,
+      paging = FALSE,
+      dom = 'Bfrti',
+      buttons = list(
+        list(extend = "copy", text = paste(fa("clipboard"),  "Copy"),
+             exportOptions = list(columns = ":visible"),
+             className = "hint--bottom-right hint--rounded hint--info",
+             attr = list("aria-label" = "Copy the below table to the clipboard")),
+        list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "CSV"),
+             action = JS("function ( e, dt, node, config ) {
+                                 Shiny.setInputValue('downloadCSV', true, {priority: 'event'});
+                               }"),
+             className = "hint--bottom-right hint--rounded hint--info",
+             attr = list("aria-label" = "Download a copy of the below table in CSV format")
+        ),
+        list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "Excel"),
+             action = JS("function ( e, dt, node, config ) {
+                                 Shiny.setInputValue('downloadExcel', true, {priority: 'event'});
+                               }"),
+             className = "hint--bottom-right hint--rounded hint--info",
+             attr = list("aria-label" = "Download a copy of the below table in Excel format")
+        )
+      ),
+      rowCallback = JS(rowCallback), # formatting NAs
+      infoCallback = JS(c(
+        "function( settings, start, end, max, total, pre ) {",
+        "  return 'Showing ' + total + ' species';",
+        "}"
+      )) # for formatting the info below the table
+    )))
+  ### update columns ----
+  # update columns based on checkboxes
+  observeEvent(df2(), update_cols2())
 }
 
 # ui.R ----
