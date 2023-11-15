@@ -718,11 +718,14 @@ ui <- {
       tags$script(src = "tableexport.min.js"),
       tags$script(src="https://cdn.jsdelivr.net/npm/darkmode-js@1.5.7/lib/darkmode-js.min.js")
     ),
-    tags$script("function addDarkmodeWidget() {
+    tags$script(HTML("function addDarkmodeWidget() {
         new Darkmode({label: '🌓', left: '32px', right: 'unset'}).showWidget();
       }
-      window.addEventListener('load', addDarkmodeWidget);"
-    ),
+      window.addEventListener('load', addDarkmodeWidget);
+      $(function() {
+        $('.navbar-collapse').append($(\"<a href='https://github.com/willgearty/Schizomida/issues' target='_blank' class='btn btn-primary'>Contribute</a>\"));
+      });"
+    )),
     ## title ----
     titlePanel('Schizomida Trait Data Base (STDB)'),
     ## panels ----
