@@ -172,7 +172,7 @@ server <- function(input, output, session) {
     onclick(paste0(cols$col_clean[i], "-th"),
             showModal(modalDialog(title = cols$filt[i],
                                   img(src = paste0("/Schizomida/drawings_database/",
-                                                   cols$filt_clean[i]),
+                                                   cols$filt_clean[i], ".png"),
                                       alt = cols$filt[i], width = "100%"),
                                   size = "l", easyClose = TRUE)))
   })
