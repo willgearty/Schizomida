@@ -101,7 +101,14 @@ tab_layout <- withTags(table(
   class = 'display',
   thead(
     tr(
-      lapply(cols$cat[double_row[double_row != ref_col]], th, rowspan = 2),
+      lapply(cols$cat[double_row[double_row != ref_col]], function(cat) {
+        args <- list(cat, rowspan = 2)
+        if(cat == "Sex") {
+          args$id <- paste0(cat, "-th")
+          args$style <- "cursor: pointer;"
+        }
+        do.call(th, args)
+      }),
       lapply(seq_along(col_width), function(i) {
         th(names(col_width)[i], colspan = col_width[i], style = "text-align: center;")
       }),
@@ -178,7 +185,7 @@ server <- function(input, output, session) {
   
   ### header selection ----
   # modal popup when clicking on a column header
-  lapply((1:nrow(cols))[-double_row], function(i) {
+  lapply(c(5, (1:nrow(cols))[-double_row]), function(i) { # column 5 is "Sex"
     onclick(paste0(cols$col_clean[i], "-th"),
             showModal(modalDialog(title = cols$filt[i],
                                   img(src = paste0("/Schizomida/drawings_database/",
@@ -484,7 +491,7 @@ server <- function(input, output, session) {
       autoWidth = TRUE,
       ordering = TRUE,
       columnDefs = list(list(width = '200px', targets = "_all"),
-                        list(orderable = FALSE, targets = 5:(ncol(shiny_schiz) - 1))),
+                        list(orderable = FALSE, targets = 4:(ncol(shiny_schiz) - 1))),
       scrollX = TRUE,
       scrollY = TRUE,
       scrollCollapse = TRUE,
