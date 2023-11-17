@@ -513,7 +513,7 @@ server <- function(input, output, session) {
         list(extend = "fixedColumns", text = "Freeze First Column",
              className = "hint--bottom-right hint--rounded hint--info",
              attr = list("aria-label" = "Freeze the first currently visible column",
-                         "style" = "z-index: 10;")
+                         "style" = "z-index: 10;", "id" = "fixedButton")
         )
       ),
       rowCallback = JS(rowCallback), # formatting NAs
@@ -521,7 +521,15 @@ server <- function(input, output, session) {
         "function( settings, start, end, max, total, pre ) {",
         "  return 'Showing ' + total + ' entries';",
         "}"
-      )) # for formatting the info below the table
+      )), # for formatting the info below the table
+      drawCallback = JS(c("if($('#fixedButton').hasClass('active')) {",
+                          "  document.body.classList.add('fixedActive');",
+                          "} else {",
+                          "  document.body.classList.remove('fixedActive');",
+                          "}")),
+      initComplete = JS("function(settings, json) {
+                           if(!$('body').hasClass('fixedActive')) $('#fixedButton').click();
+                         }")
     )) %>%
       formatStyle('Genus', fontStyle = "italic") %>%
       formatStyle('Species', fontStyle = "italic"))
