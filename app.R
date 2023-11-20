@@ -16,14 +16,14 @@ library(Hmisc)
 library(bslib)
 
 # load data ----
-shiny_schiz_orig <- read.xlsx('data/STDB_data.xlsx',
+shiny_schiz_orig <- read.xlsx('data/STDB.xlsx',
                               sheet = 'STDB',
                               fillMergedCells = TRUE)
 
 # edit references subheading
 shiny_schiz_orig[1, ncol(shiny_schiz_orig)] <- "References"
 
-taxonomy_syn <- read.xlsx('data/STDB_data.xlsx',
+taxonomy_syn <- read.xlsx('data/STDB.xlsx',
                           sheet = 'Species description history')
 colnames(taxonomy_syn) <- gsub(".", " ", colnames(taxonomy_syn), fixed = TRUE)
 
