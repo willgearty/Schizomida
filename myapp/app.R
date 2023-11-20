@@ -435,12 +435,12 @@ server <- function(input, output, session) {
   ## data table ----
   ### setup reactive data ----
   df <- eventReactive(
-    lapply(
+    do.call(c, lapply(
       cols$filt_clean,
       function(name) {
-        input[[name]]
+        list(input[[name]], input[[paste0(name, "-NAs")]])
       }
-    ),
+    )),
     {
       data <- shiny_schiz
       for (i in seq_len(nrow(cols))) {
