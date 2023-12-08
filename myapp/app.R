@@ -170,7 +170,7 @@ server <- function(input, output, session) {
         }
       }
     }
-    showModal(modalDialog(
+    modal <- modalDialog(
       tags$table(
         lapply(colnames(data), function(name) {
           tags$tr(tags$th(name), tags$td(data[[name]][input$table1_rows_selected]))
@@ -180,7 +180,10 @@ server <- function(input, output, session) {
                      data$Sex[input$table1_rows_selected], ")"),
       size = "l",
       easyClose = TRUE
-    ))
+    )
+    # insert dismiss button in the header
+    modal$children[[1]]$children[[1]]$children[[1]]$children[[2]] <- modalButton("Dismiss")
+    showModal(modal)
   })
   
   ### header selection ----
@@ -644,7 +647,7 @@ server <- function(input, output, session) {
 # ui.R ----
 ui <- {
   fluidPage(
-    theme = bs_theme(version = 5),
+    theme = bs_theme(version = 5, preset="bootstrap"),
     useShinyjs(),
     use_prompt(),
     ## head ----
@@ -694,9 +697,6 @@ ui <- {
            background-color: black !important;
            color: white !important;
            border: solid white !important;
-         }
-         .bslib-sidebar-layout {
-           --bslib-sidebar-width: 35% !important;
          }
          .sidebar-content {
            padding: 0 !important;
@@ -758,7 +758,8 @@ ui <- {
                                  style = "float: right; margin-top: -24px; text-align: right;")
                            ), style = "width: 100%;"),
                   #### filters ----
-                  sidebar = sidebar(card(fluidRow(h4("Filters"),
+                  sidebar = sidebar(width = "35%",
+                                    card(fluidRow(h4("Filters"),
                                                   accordion(multiple = FALSE,
                                                             accordion_panel(
                                                               "Taxonomy and Sex",
@@ -935,20 +936,21 @@ ui <- {
                                                               })
                                                             )
                                                   )
-                  )),
-                  #### reset button ----
-                  div(style="text-align: center; padding-bottom: var(--bslib-sidebar-padding);",
-                      add_prompt(actionButton("reset_input1", HTML(paste(fa("rotate", prefer_type = "solid"), "Reset all filters")), width = "50%"),
-                                 message = "Reset the table to its original form",
-                                 position = "top", type = "warning", rounded = TRUE)),
-                  id = "side-panel1"
+                                    )),
+                                    #### reset button ----
+                                    div(style="text-align: center; padding-bottom: var(--bslib-sidebar-padding);",
+                                        add_prompt(actionButton("reset_input1", HTML(paste(fa("rotate", prefer_type = "solid"), "Reset all filters")), width = "50%"),
+                                                   message = "Reset the table to its original form",
+                                                   position = "top", rounded = TRUE)),
+                                    id = "side-panel1"
                   )
                 )),
                 ### species hist. ----
                 nav_panel("Species Description History", layout_sidebar(
                   fluidRow(DT::dataTableOutput('table2'), style = "width: 100%;"),
                   #### filters ----
-                  sidebar = sidebar(card(fluidRow(h2("Filters"),
+                  sidebar = sidebar(width = "35%",
+                                    card(fluidRow(h2("Filters"),
                                                   accordion(multiple = FALSE,
                                                             accordion_panel(
                                                               "Taxonomy",
@@ -967,13 +969,13 @@ ui <- {
                                                               }))
                                                             )
                                                   )
-                  )),
-                  #### reset button ----
-                  div(style="text-align: center; padding-bottom: var(--bslib-sidebar-padding);",
-                      add_prompt(actionButton("reset_input2", HTML(paste(fa("rotate", prefer_type = "solid"), "Reset all filters")), width = "50%"),
-                                 message = "Reset the table to its original form",
-                                 position = "top", type = "warning", rounded = TRUE)),
-                  id = "side-panel2"
+                                    )),
+                                    #### reset button ----
+                                    div(style="text-align: center; padding-bottom: var(--bslib-sidebar-padding);",
+                                        add_prompt(actionButton("reset_input2", HTML(paste(fa("rotate", prefer_type = "solid"), "Reset all filters")), width = "50%"),
+                                                   message = "Reset the table to its original form",
+                                                   position = "top", rounded = TRUE)),
+                                    id = "side-panel2"
                   )
                 )),
                 ### general anatomy ----
