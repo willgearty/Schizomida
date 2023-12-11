@@ -216,9 +216,9 @@ server <- function(input, output, session) {
       input[[paste0(cols$filt_clean[i], "-checkbox1")]],
       {
       if (input[[paste0(cols$filt_clean[i], "-checkbox1")]]) {
-        showCols(proxy1, which(cols$filt[i] == colnames(shiny_schiz)) - 1)
+        showCols(proxy1, grep(cols$filt[i], colnames(shiny_schiz)) - 1)
       } else {
-        hideCols(proxy1, which(cols$filt[i] == colnames(shiny_schiz)) - 1)
+        hideCols(proxy1, grep(cols$filt[i], colnames(shiny_schiz)) - 1)
       }},
       ignoreInit = TRUE
     )
