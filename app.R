@@ -203,11 +203,11 @@ server <- function(input, output, session) {
       }
     }
     showCols(proxy1,
-             unname(sapply(show_cols,
-                           function(x) which(x == colnames(shiny_schiz)) - 1)))
+             unname(unlist(sapply(show_cols,
+                                  function(x) grep(x, colnames(shiny_schiz), fixed = TRUE) - 1))))
     hideCols(proxy1,
-             unname(sapply(hide_cols,
-                           function(x) which(x == colnames(shiny_schiz)) - 1)))
+             unname(unlist(sapply(hide_cols,
+                                  function(x) grep(x, colnames(shiny_schiz), fixed = TRUE) - 1))))
   }
   
   # monitor checkboxes for table1
@@ -216,10 +216,33 @@ server <- function(input, output, session) {
       input[[paste0(cols$filt_clean[i], "-checkbox1")]],
       {
       if (input[[paste0(cols$filt_clean[i], "-checkbox1")]]) {
-        showCols(proxy1, grep(cols$filt[i], colnames(shiny_schiz)) - 1)
+        showCols(proxy1, grep(cols$filt[i], colnames(shiny_schiz), fixed = TRUE) - 1)
       } else {
-        hideCols(proxy1, grep(cols$filt[i], colnames(shiny_schiz)) - 1)
+        hideCols(proxy1, grep(cols$filt[i], colnames(shiny_schiz), fixed = TRUE) - 1)
       }},
+      ignoreInit = TRUE
+    )
+  })
+  
+  #### hide entire tabs of columns ----
+  lapply(1:5, function(i) {
+    observeEvent(
+      input[[paste0("hide_all_", i)]],
+      {
+        if (input[[paste0("hide_all_", i)]]) {
+          showCols(proxy1,
+                   unname(unlist(sapply(cols$filt[cols$tab == i],
+                                        function(x) grep(x, colnames(shiny_schiz), fixed = TRUE) - 1))))
+          lapply(cols$filt_clean[cols$tab == i],
+                 function(j) runjs(paste0("$('#", j, "-checkbox1').attr('checked', true).trigger('change');")))
+        } else {
+          hideCols(proxy1,
+                   unname(unlist(sapply(cols$filt[cols$tab == i],
+                                        function(x) grep(x, colnames(shiny_schiz), fixed = TRUE) - 1))))
+          lapply(cols$filt_clean[cols$tab == i],
+                 function(j) runjs(paste0("$('#", j, "-checkbox1').attr('checked', false).trigger('change');")))
+        }
+      },
       ignoreInit = TRUE
     )
   })
@@ -750,9 +773,14 @@ ui <- {
             #### filters ----
             sidebar = sidebar(width = "35%",
                               card(fluidRow(h4("Filters"),
-                                  accordion(multiple = FALSE,
+                                  accordion(id = "database-accordion",
+                                            multiple = FALSE,
                                             accordion_panel(
-                                              "Taxonomy and Sex",
+                                              HTML(paste0("Taxonomy and Sex ",
+                                                          "<input type='checkbox' checked id='hide_all_1'",
+                                                          "aria-label = 'show/hide this entire section of columns'",
+                                                          "class = 'hint--bottom-right hint--rounded'>")),
+                                              value = "1",
                                               fluidRow(lapply(seq_len(cols %>% filter(tab == 1) %>% nrow()), function(i) {
                                                 column(4,
                                                        selectInput(inputId = cols$col_clean[i],
@@ -768,7 +796,11 @@ ui <- {
                                               }))
                                             ),
                                             accordion_panel(
-                                              "Prosoma",
+                                              HTML(paste0("Prosoma ",
+                                                          "<input type='checkbox' checked id='hide_all_2'",
+                                                          "aria-label = 'show/hide this entire section of columns'",
+                                                          "class = 'hint--bottom-right hint--rounded'>")),
+                                              value = "2",
                                               lapply(unique(cols$cat[cols$tab == 2]), function(cat_name) {
                                                 cols_sub <- cols %>% filter(cat == cat_name, !dupe)
                                                 list(fluidRow(column(12, h5(cat_name, id = idEscape(cat_name)))),
@@ -814,7 +846,11 @@ ui <- {
                                               })
                                             ),
                                             accordion_panel(
-                                              "Opisthosoma",
+                                              HTML(paste0("Opisthosoma ",
+                                                          "<input type='checkbox' checked id='hide_all_3'",
+                                                          "aria-label = 'show/hide this entire section of columns'",
+                                                          "class = 'hint--bottom-right hint--rounded'>")),
+                                              value = "3",
                                               lapply(unique(cols$cat[cols$tab == 3]), function(cat_name) {
                                                 cols_sub <- cols %>% filter(cat == cat_name, !dupe)
                                                 list(fluidRow(column(12, h5(cat_name, id = idEscape(cat_name)))),
@@ -860,7 +896,11 @@ ui <- {
                                               })
                                             ),
                                             accordion_panel(
-                                              "Legs and Size",
+                                              HTML(paste0("Legs and Size ",
+                                                          "<input type='checkbox' checked id='hide_all_4'",
+                                                          "aria-label = 'show/hide this entire section of columns'",
+                                                          "class = 'hint--bottom-right hint--rounded'>")),
+                                              value = "4",
                                               lapply(unique(cols$cat[cols$tab == 4]), function(cat_name) {
                                                 cols_sub <- cols %>% filter(cat == cat_name, !dupe)
                                                 list(fluidRow(column(12, h5(cat_name, id = idEscape(cat_name)))),
@@ -906,7 +946,11 @@ ui <- {
                                               })
                                             ),
                                             accordion_panel(
-                                              "Ecology and Locality",
+                                              HTML(paste0("Ecology and Locality ",
+                                                          "<input type='checkbox' checked id='hide_all_5'",
+                                                          "aria-label = 'show/hide this entire section of columns'",
+                                                          "class = 'hint--bottom-right hint--rounded'>")),
+                                              value = "5",
                                               lapply(unique(cols$cat[cols$tab == 5]), function(cat_name) {
                                                 cols_sub <- cols %>% filter(cat == cat_name)
                                                 list(fluidRow(column(12, h5(cat_name, id = idEscape(cat_name)))),
