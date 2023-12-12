@@ -81,13 +81,13 @@ shiny_schiz[, num_cols] <- round(apply(shiny_schiz_clean[, num_cols], 2, all.is.
 # Get male and female columns
 male_names <- Reduce(union,
                      list(
-                       grep("(male", cols$col, fixed = TRUE, value = TRUE),
+                       grep("Male:", cols$col, fixed = TRUE, value = TRUE),
                        cols$col[grepl("(male", cols$cat, fixed = TRUE)],
                        grep("(male", cols$cat, fixed = TRUE, value = TRUE)
                      ))
 female_names <- Reduce(union,
                        list(
-                         grep("(female", cols$col, fixed = TRUE, value = TRUE),
+                         grep("Female:", cols$col, fixed = TRUE, value = TRUE),
                          cols$col[grepl("(female", cols$cat, fixed = TRUE)],
                          grep("(female", cols$cat, fixed = TRUE, value = TRUE)
                        ))
