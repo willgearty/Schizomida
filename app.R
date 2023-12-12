@@ -30,9 +30,11 @@ colnames(taxonomy_syn) <- gsub(".", " ", colnames(taxonomy_syn), fixed = TRUE)
 # convert docx to filtered html, then convert to UTF-8
 references_html <- includeHTML("data/STDB_references.htm")
 about_html <- includeHTML("data/STDB_about.htm")
+body_plan_html <- includeHTML("data/drawings_database/body_plan_caption.htm")
 
 # load figure captions
 fig_captions <- read.csv("data/drawings_database/figure_captions.csv")
+fig_cols <- gsub(".png", "", fig_captions$Filename)
 
 # clean data ----
 # make a function to clean strings for use as element ids
@@ -109,7 +111,9 @@ tab_layout <- withTags(table(
     ),
     tr(
       lapply((1:nrow(cols))[-double_row], function(i) {
-        th(cols$col[i], id = paste0(cols$col_clean[i], "-th"), style = "cursor: pointer;")
+        th(cols$col[i], id = paste0(cols$col_clean[i], "-th"),
+           style = ifelse(i %in% which(cols$col_clean %in% fig_cols),
+                          "cursor: pointer;", ""))
       })
     )
   )
@@ -181,13 +185,14 @@ server <- function(input, output, session) {
   
   ### header selection ----
   # modal popup when clicking on a column header
-  lapply(c(5, (1:nrow(cols))[-double_row]), function(i) { # column 5 is "Sex"
+  lapply(which(cols$col_clean %in% fig_cols), function(i) {
     onclick(paste0(cols$col_clean[i], "-th"),
             {
               modal <- modalDialog(title = cols$filt[i],
-                                   img(src = paste0("/Schizomida/drawings_database/",
-                                                    cols$filt_clean[i], ".png"),
-                                       alt = cols$filt[i], width = "100%"),
+                                   div(img(src = paste0("https://williamgearty.com/Schizomida/drawings_database/",
+                                                        cols$filt_clean[i], ".png"),
+                                           alt = cols$filt[i], style = "max-height: 60vh; max-width: 100%;"),
+                                       style = "text-align: -moz-center; text-align: -webkit-center;"),
                                    div(fig_captions$Caption[match(paste0(cols$filt_clean[i], ".png"),
                                                                   fig_captions$Filename)]),
                                    size = "l", easyClose = TRUE)
@@ -596,7 +601,7 @@ server <- function(input, output, session) {
                                         function(x) which(x == colnames(shiny_schiz)) - 1))))
         }
       }
-    })
+    }, ignoreInit = TRUE)
   
   ## tax. and syn. table ----
   ### setup reactive data ----
@@ -706,9 +711,13 @@ ui <- {
            height: 80vh !important;
            height: 80dvh !important;
            overflow-y: auto !important;
-         }
-         #side-panel {
            overflow-x: hidden !important;
+         }
+         #side-panel1 {
+           z-index: 11;
+         }
+         .collapse-toggle {
+           z-index: 12 !important;
          }
          .darkmode--activated .table-striped tr.odd>* {
            background-color: #e0e0e0 !important;
@@ -1025,7 +1034,11 @@ ui <- {
       ### general anatomy ----
       nav_panel(
         "Schizomid General Anatomy",
-        div(style = "overflow-y: scroll; height: calc(90vh - 120px); height: calc(90dvh - 120px);")
+        div(img(src = paste0("https://williamgearty.com/Schizomida/drawings_database/body_plan.png"),
+                    alt = "Schizomida body plan",
+                    style = "max-height: 70vh; max-width: 100%; float: left;"),
+            div(body_plan_html),
+            style = "overflow-y: scroll; height: calc(90vh - 120px); height: calc(90dvh - 120px);")
       ),
       ### references ----
       nav_panel(
