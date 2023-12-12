@@ -190,11 +190,16 @@ server <- function(input, output, session) {
   # modal popup when clicking on a column header
   lapply(c(5, (1:nrow(cols))[-double_row]), function(i) { # column 5 is "Sex"
     onclick(paste0(cols$col_clean[i], "-th"),
-            showModal(modalDialog(title = cols$filt[i],
-                                  img(src = paste0("/Schizomida/drawings_database/",
-                                                   cols$filt_clean[i], ".png"),
-                                      alt = cols$filt[i], width = "100%"),
-                                  size = "l", easyClose = TRUE)))
+            {
+              modal <- modalDialog(title = cols$filt[i],
+                                   img(src = paste0("/Schizomida/drawings_database/",
+                                                    cols$filt_clean[i], ".png"),
+                                       alt = cols$filt[i], width = "100%"),
+                                   size = "l", easyClose = TRUE)
+              # insert dismiss button in the header
+              modal$children[[1]]$children[[1]]$children[[1]]$children[[2]] <- modalButton("Dismiss")
+              showModal(modal)
+            })
   })
   
   ## show/hide columns ----
