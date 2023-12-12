@@ -41,6 +41,9 @@ colnames(taxonomy_syn) <- gsub(".", " ", colnames(taxonomy_syn), fixed = TRUE)
 references_html <- includeHTML("data/STDB_references.htm")
 about_html <- includeHTML("data/STDB_about.htm")
 
+# load figure captions
+fig_captions <- read.csv("data/figure_captions.csv")
+
 # clean data ----
 # make a function to clean strings for use as element ids
 idEscape <- function(x) {
@@ -195,6 +198,8 @@ server <- function(input, output, session) {
                                    img(src = paste0("/Schizomida/drawings_database/",
                                                     cols$filt_clean[i], ".png"),
                                        alt = cols$filt[i], width = "100%"),
+                                   div(fig_captions$Caption[match(paste0(cols$filt_clean[i], ".png"),
+                                                                  fig_captions$Filename)]),
                                    size = "l", easyClose = TRUE)
               # insert dismiss button in the header
               modal$children[[1]]$children[[1]]$children[[1]]$children[[2]] <- modalButton("Dismiss")
