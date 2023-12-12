@@ -40,6 +40,7 @@ colnames(taxonomy_syn) <- gsub(".", " ", colnames(taxonomy_syn), fixed = TRUE)
 # convert docx to filtered html, then convert to UTF-8
 references_html <- includeHTML("data/STDB_references.htm")
 about_html <- includeHTML("data/STDB_about.htm")
+body_plan_html <- includeHTML("data/body_plan_caption.htm")
 
 # load figure captions
 fig_captions <- read.csv("data/figure_captions.csv")
