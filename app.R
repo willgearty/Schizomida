@@ -217,12 +217,16 @@ server <- function(input, output, session) {
         hide_cols <- c(hide_cols, cols$filt[i])
       }
     }
-    showCols(proxy1,
-             unname(unlist(sapply(show_cols,
-                                  function(x) grep(x, colnames(shiny_schiz), fixed = TRUE) - 1))))
-    hideCols(proxy1,
-             unname(unlist(sapply(hide_cols,
-                                  function(x) grep(x, colnames(shiny_schiz), fixed = TRUE) - 1))))
+    if (length(show_cols > 0)) {
+      showCols(proxy1,
+               unname(sapply(show_cols,
+                             function(x) grep(x, colnames(shiny_schiz), fixed = TRUE) - 1)))
+    }
+    if (length(hide_cols > 0)) {
+      hideCols(proxy1,
+               unname(sapply(hide_cols,
+                             function(x) grep(x, colnames(shiny_schiz), fixed = TRUE) - 1)))
+    }
   }
   
   # monitor checkboxes for table1
@@ -230,11 +234,12 @@ server <- function(input, output, session) {
     observeEvent(
       input[[paste0(cols$filt_clean[i], "-checkbox1")]],
       {
-      if (input[[paste0(cols$filt_clean[i], "-checkbox1")]]) {
-        showCols(proxy1, grep(cols$filt[i], colnames(shiny_schiz), fixed = TRUE) - 1)
-      } else {
-        hideCols(proxy1, grep(cols$filt[i], colnames(shiny_schiz), fixed = TRUE) - 1)
-      }},
+        if (input[[paste0(cols$filt_clean[i], "-checkbox1")]]) {
+          showCols(proxy1, grep(cols$filt[i], colnames(shiny_schiz), fixed = TRUE) - 1)
+        } else {
+          hideCols(proxy1, grep(cols$filt[i], colnames(shiny_schiz), fixed = TRUE) - 1)
+        }
+      },
       ignoreInit = TRUE
     )
   })
@@ -276,12 +281,16 @@ server <- function(input, output, session) {
         hide_cols <- c(hide_cols, cols$filt[i])
       }
     }
-    showCols(proxy2,
-             unname(sapply(show_cols,
-                           function(x) which(x == colnames(shiny_schiz)) - 1)))
-    hideCols(proxy2,
-             unname(sapply(hide_cols,
-                           function(x) which(x == colnames(shiny_schiz)) - 1)))
+    if (length(show_cols > 0)) {
+      showCols(proxy2,
+               unname(sapply(show_cols,
+                             function(x) which(x == colnames(shiny_schiz)) - 1)))
+    }
+    if (length(hide_cols > 0)) {
+      hideCols(proxy2,
+               unname(sapply(hide_cols,
+                             function(x) which(x == colnames(shiny_schiz)) - 1)))
+    }
   }
 
   # monitor checkboxes for table2
@@ -324,6 +333,7 @@ server <- function(input, output, session) {
   observeEvent(input$reset_input1, {
     reset("side-panel1")
     runjs("$('input[id$=checkbox1]').prop('checked', true).trigger('change')")
+    runjs("$('input[id^=hide_all]').prop('checked', true).trigger('change')")
   })
 
   observeEvent(input$reset_input2, {
@@ -779,7 +789,8 @@ ui <- {
     ## title ----
     titlePanel('Schizomida Trait Data Base (STDB)'),
     ## panels ----
-    page_navbar(bg = "#f7f6f4", gap = "15px",
+    page_navbar(theme = bs_theme(version = 5, preset="bootstrap"),
+      bg = "#f7f6f4", gap = "15px",
       ### database ----
       nav_panel("Database", layout_sidebar(
             fluidRow(DT::dataTableOutput('table1'),
