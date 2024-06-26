@@ -9,7 +9,7 @@ file.copy("docs/index.html", filename, overwrite = TRUE)
 # (should find a way to do this automatically in the future)
 
 # update webapp
-shinylive::export("myapp", "docs", verbose = FALSE)
+shinylive::export("myapp", "docs", verbose = FALSE, assets_version = "0.3.0")
 
 # restore index.html
 file.copy(filename, "docs/index.html", overwrite = TRUE)
