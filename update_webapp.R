@@ -4,6 +4,10 @@ library(shinylive)
 filename <- file.path(tempdir(), "temp_index.html")
 file.copy("docs/index.html", filename, overwrite = TRUE)
 
+# if updating the shinylive assets version
+# delete the "docs/shinylive" folder
+# (should find a way to do this automatically in the future)
+
 # update webapp
 shinylive::export("myapp", "docs", verbose = FALSE)
 
