@@ -10,7 +10,7 @@ permissions: read-all
 
 jobs:
   document:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -27,7 +27,8 @@ jobs:
       - name: Install dependencies
         run: |
           install.packages("pak", repos = "https://r-lib.github.io/p/pak/dev/")
-          pak::pkg_install("openxlsx")
+          pak::pkg_install(c("shiny", "shinyjs", "dplyr", "openxlsx", "DT",
+                             "janitor", "htmltools", "fontawesome", "prompter", "bslib"))
           pak::pkg_install("posit-dev/r-shinylive")
         shell: Rscript {0}
 
