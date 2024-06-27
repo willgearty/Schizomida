@@ -2,6 +2,9 @@
 # William Gearty and Sandro Pascal Müller
 # 2023-09-07
 
+# this file is for running the shiny app locally
+# changes should be copied to myapp/app.R
+
 # relevant packages ----
 library(shiny)
 library(shinyjs)
@@ -16,14 +19,14 @@ library(Hmisc)
 library(bslib)
 
 # load data ----
-shiny_schiz_orig <- read.xlsx('data/STDB.xlsx',
+shiny_schiz_orig <- read.xlsx('data/STDB_data.xlsx',
                               sheet = 'STDB',
                               fillMergedCells = TRUE)
 
 # edit references subheading
 shiny_schiz_orig[1, ncol(shiny_schiz_orig)] <- "References"
 
-taxonomy_syn <- read.xlsx('data/STDB.xlsx',
+taxonomy_syn <- read.xlsx('data/STDB_data.xlsx',
                           sheet = 'Species description history')
 colnames(taxonomy_syn) <- gsub(".", " ", colnames(taxonomy_syn), fixed = TRUE)
 
@@ -269,7 +272,7 @@ server <- function(input, output, session) {
 
   ### table 2 ----
   # update all table2 columns based on checkboxes
-  checkbox2_rows <- which(cols$col %in% c("Family", "Subfamily", "Genus", "Species"))
+  checkbox2_rows <- which(cols$cat %in% c("Family", "Subfamily", "Genus", "Species", "Distribution"))
   update_cols2 <- function() {
     # hide columns in table2
     show_cols <- c()
@@ -284,12 +287,12 @@ server <- function(input, output, session) {
     if (length(show_cols > 0)) {
       showCols(proxy2,
                unname(sapply(show_cols,
-                             function(x) which(x == colnames(shiny_schiz)) - 1)))
+                             function(x) which(x == colnames(taxonomy_syn)) - 1)))
     }
     if (length(hide_cols > 0)) {
       hideCols(proxy2,
                unname(sapply(hide_cols,
-                             function(x) which(x == colnames(shiny_schiz)) - 1)))
+                             function(x) which(x == colnames(taxonomy_syn)) - 1)))
     }
   }
 
@@ -297,9 +300,9 @@ server <- function(input, output, session) {
   lapply(checkbox2_rows, function(i) {
     observeEvent(input[[paste0(cols$filt_clean[i], "-checkbox2")]],
                  if (input[[paste0(cols$filt_clean[i], "-checkbox2")]]) {
-                   showCols(proxy2, which(cols$filt[i] == colnames(shiny_schiz)) - 1)
+                   showCols(proxy2, which(cols$filt[i] == colnames(taxonomy_syn)) - 1)
                  } else {
-                   hideCols(proxy2, which(cols$filt[i] == colnames(shiny_schiz)) - 1)
+                   hideCols(proxy2, which(cols$filt[i] == colnames(taxonomy_syn)) - 1)
                  },
                  ignoreInit = TRUE
     )
@@ -615,20 +618,21 @@ server <- function(input, output, session) {
   
   ## tax. and syn. table ----
   ### setup reactive data ----
+  df2_cols <- which(cols$cat %in% c("Family", "Subfamily", "Genus", "Species", "Distribution"))
   df2 <- eventReactive(
     lapply(
-      c("Family", "Subfamily", "Genus", "Species"),
+      cols$filt_clean[df2_cols],
       function(name) {
         input[[paste0(name, "2")]]
       }
     ),
     {
       data2 <- taxonomy_syn
-      for (col in c("Family", "Subfamily", "Genus", "Species")) {
-        input_value <- input[[paste0(col, "2")]]
+      for (col in df2_cols) {
+        input_value <- input[[paste0(cols$filt_clean[col], "2")]]
         if (!is.null(input_value)) {
           data2 <- data2 %>%
-            filter(grepl(input_value, !!as.symbol(col), fixed = TRUE))
+            filter(!!as.symbol(cols$col[col]) %in% input_value)
         }
       }
       data2
@@ -1031,6 +1035,26 @@ ui <- {
                                                                              choices = sort(unique(as.character(taxonomy_syn[[cols$col[i]]]))),
                                                                              multiple = TRUE))
                                                         }))
+                                                      ),
+                                                      accordion_panel(
+                                                        "Locality",
+                                                        lapply(unique(cols$cat[cols$cat == "Distribution"]), function(cat_name) {
+                                                          cols_sub <- cols %>% filter(cat == cat_name)
+                                                          list(fluidRow(column(12, h5(cat_name, id = idEscape(cat_name)))),
+                                                               fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
+                                                                 column(6,
+                                                                        selectInput(inputId = paste0(cols_sub$col_clean[i], "2"),
+                                                                                    label = HTML(paste0(cols_sub$col[i],
+                                                                                                        " <input type = 'checkbox' checked id = ",
+                                                                                                        "'", cols_sub$col_clean[i], "-checkbox2' ",
+                                                                                                        "aria-label = 'show/hide this column'",
+                                                                                                        "class = '",
+                                                                                                        ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
+                                                                                                        " hint--rounded'>")),
+                                                                                    choices = sort(unique(as.character(taxonomy_syn[[cols_sub$col[i]]]))),
+                                                                                    multiple = TRUE))
+                                                               })))
+                                                        })
                                                       )
                                             )
             )),
