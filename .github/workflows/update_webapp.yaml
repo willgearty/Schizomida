@@ -6,11 +6,11 @@ on:
 
 name: Update webapp
 
-permissions: read-all
-
 jobs:
   update:
     runs-on: windows-latest
+    permissions:
+      contents: write
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -27,7 +27,7 @@ jobs:
       - name: Install dependencies
         run: |
           install.packages("pak", repos = "https://r-lib.github.io/p/pak/dev/")
-          pak::pkg_install(c("shiny", "shinyjs", "dplyr", "openxlsx", "DT",
+          pak::pkg_install(c("cpp11", "shiny", "shinyjs", "dplyr", "openxlsx", "DT",
                              "janitor", "htmltools", "fontawesome", "prompter", "bslib"))
           pak::pkg_install("posit-dev/r-shinylive")
         shell: Rscript {0}
@@ -44,9 +44,9 @@ jobs:
 
       - name: Commit and push changes
         run: |
-          git config --local user.name "$GITHUB_ACTOR"
-          git config --local user.email "$GITHUB_ACTOR@users.noreply.github.com"
-          git add man/\* NAMESPACE DESCRIPTION
+          git config --local user.name "${{ github.actor }}"
+          git config --local user.email "${{ github.actor }}@users.noreply.github.com"
+          git add -A
           git commit -m "Update webapp" || echo "No changes to commit"
           git pull --ff-only
           git push origin
