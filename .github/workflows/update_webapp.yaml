@@ -9,7 +9,7 @@ name: Update webapp
 permissions: read-all
 
 jobs:
-  document:
+  update:
     runs-on: windows-latest
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
