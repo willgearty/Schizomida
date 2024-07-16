@@ -8,7 +8,7 @@ unlink("docs/shinylive", recursive = TRUE)
 
 # update webapp
 # TODO: use template_params once shinylive assets > 0.4.1
-shinylive::export("myapp", "docs", quiet = TRUE, assets_version = "0.3.0",
+shinylive::export("myapp", "docs", quiet = TRUE, assets_version = "0.4.1",
                   template_dir = "templates/")
 
 # run this to check that everything looks ok
