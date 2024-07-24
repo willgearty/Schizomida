@@ -7,9 +7,13 @@ unlink("docs/shinylive-sw.js")
 unlink("docs/shinylive", recursive = TRUE)
 
 # update webapp
-# TODO: use template_params once shinylive assets > 0.4.1
-shinylive::export("myapp", "docs", quiet = TRUE, assets_version = "0.4.1",
-                  template_dir = "templates/")
+template_params <- list(
+  title = "Schizomida Trait Data Base (STDB)",
+  include_in_head = paste0('<link rel="shortcut icon" type="image/ico" href="/Schizomida/favicon.ico"/>\n',
+                           '    <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>')
+  )
+shinylive::export("myapp", "docs", assets_version = "0.5.0",
+                  template_params = template_params)
 
 # run this to check that everything looks ok
 if (Sys.getenv("CI") == "") {
