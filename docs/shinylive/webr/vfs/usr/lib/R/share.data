@@ -128,13 +128,15 @@ assign("grid_plot_hook",
 setHook("plot.new",     get("base_plot_hook", pos = "CheckExEnv"))
 setHook("persp",        get("base_plot_hook", pos = "CheckExEnv"))
 setHook("grid.newpage", get("grid_plot_hook", pos = "CheckExEnv"))
-assign("cleanEx",
+assign("cleanEx", evalq(
        function(env = .GlobalEnv) {
 	   rm(list = ls(envir = env, all.names = TRUE), envir = env)
            RNGkind("default", "default", "default")
 	   set.seed(1)
    	   options(warn = 1)
 	   .CheckExEnv <- as.environment("CheckExEnv")
+           if(identical(Sys.getenv("_R_CHECK_SCREEN_DEVICE_"), "stop"))
+               options(editor = function(...) utils:::check_screen_device("editor"))
 	   delayedAssign("T", stop("T used instead of TRUE", domain = NA),
 		  assign.env = .CheckExEnv)
 	   delayedAssign("F", stop("F used instead of FALSE", domain = NA),
@@ -166,7 +168,7 @@ assign("cleanEx",
                }
            }
        },
-       pos = "CheckExEnv")
+       as.environment("CheckExEnv")), pos = "CheckExEnv")
 assign("ptime", proc.time(), pos = "CheckExEnv")
 ## Do this before loading the package,
 ## since packages have been known to change settings.
@@ -224,7 +226,6 @@ options(useFancyQuotes = FALSE)
 % Individual Rd files may define their own macros.
 
 
-
 % To refer to a package on CRAN
 \newcommand{\CRANpkg}{\href{https://CRAN.R-project.org/package=#1}{\pkg{#1}}}
 
@@ -250,7 +251,6 @@ options(useFancyQuotes = FALSE)
 \newcommand{\packageDESCRIPTION}{\Sexpr[results=rd,stage=build]{tools:::Rd_package_DESCRIPTION("#1")}}
 
 % To include various indices about an installed package
-
 \newcommand{\packageIndices}{\Sexpr[results=rd,stage=build]{tools:::Rd_package_indices("#1")}}
 
 % To indicate a DOI.
@@ -264,17 +264,46 @@ options(useFancyQuotes = FALSE)
 %   \ifelse{html}{\out{<span style="font-family: sans-serif;">#1</span>}}
 % but this does not always work correctly with Rd2HTML() as of 2018-05.
 \newcommand{\proglang}{\ifelse{latex}{\out{\textsf{#1}}}{#1}}
-‹      mYë~Ú:ÏÖ\Ì-éÙ—8ÏA¡´H›³…-°Ûrd›$}Ï}ŸÏŒìô?ÍßºŒFsçŸáÕÕÕ—+¯¿¯¾^]ıëW«ŒıiÈ<×iÑ¤Hç5àMg÷õp8=>Yõ^#q<Æ:‘Fê,iÅrV{Ó“P'IgWÔß¸uOÄ@"Õ><şšÒ›%‘eF¿«Ä=£;İ.×8¹3İÒ¸+ò@)Úå'rr#ÊBÚÃ>:­á¯-™¹¾àga”HÙÜÑÆd#Ç[7Pb|`Ñ\'"®ş^'™†59²äA…J¸ÄB¯¥.p!¸jb#ÒHæ¶ZW¨à”óQ&‹uÏQ“9Ó¹LE‚ë;·÷‹>Õ­Ú?Ëh¦ŠU*…!†Tª%âø£FÆ·
-•†ePjõöÊ9½¡˜7U¼©œx¿U•”¾L Ş¤:F¼ŸÖ±)“ï»^Èœ86Rœ2­RœÑD¦
-ÇÂ2W´Ÿ7›‘nÎîĞ":0$ñ‘NpÒ³ÊO´lI65ûşß;ˆË¼;§M×ÿùA›êPfâˆ·îíL:¾¼„*>xIl_‘®
-t™¤p'N2ÊÔ•8LË"™JPbí“¹ŒjåßÇîö-+}¶ÁL·3hCšÑŞ˜‘/³ŒD´ùÉâÚNh[³Løãê¤¾Ûñğ-)“.I¶äeá*Æ izèPâ bºË¥Î lCriìÚ·»ä’Ô9l~ıµÁƒC{w·K²ÃÁ±}„“ñm¡ƒ­‚Ò¿&ÃMOy¡÷BD€]iE7”gó×sC¼;ŠãP‘.Àsü¦Å£Pj7†Ğ5BE¥x@Ùï šÈÔzaˆ-l€º&³òÀ€ªÿv•{H¨df	‰ıÕ
-u†t«9ù„x%™¥ãùÆDbŸ/w›éŒü€ŒeÒ´È¡aí=²ã‘æTç¡|-U	–Yg¾Û¢Bæe+gåP¾R†®ÉÊw	jîÚ5@0ì
-hPå6”c.Şıı3ŠùŒÂ	 ş¡IÎ] ED¶|¿äK z"ç£ú÷Ú†]ü½‘òvw‡ˆÁr—£ÕÜÊ4(jeP|5†éıÓ5ªïbº}Ã+E™;a`°¨i^8COÒ‡7]h)ÅGF·G:ly -†±‘ÎPJ•á%½£:3Kòp‹^¨CR¡…ÖG²!o±¹ã!éõÑè=
-Ãéu?)„"aã)_oH ix$E‘ôÙƒo2>Ûğ‚1ö&’à«uZ¯L—şwf3ö"M’‰t¢­tJ<mb‘ö^Ş7¾à7rù¨Hb‚_æè"`Ş¥®RÜ ‚Ë½¾ˆ÷ŠLÜ¨Ğ*à•rüOg9Ÿã)¸-*Ô…±Ó>«°1¥Ç€	$¼´§RïQÅ ~H“R”˜Tôk	¹‡§¡J[¦%Liğè-Ÿ¶4Ü>ç/+T)ÿ»ôm¡ó}ºÃœÈÿ/¤¬àI·/4+nçûf¾@~è^O}FU9uäÉı¦ÌO”"û?JI³¢àwjÒ½ÕÔñ¤İ•àLµkÓò˜«;*V¬ïŞêYML®hRçUÑ_-œ£±Dl-¿[€ı¾ë#è;y™®¥)á¬>ìª¡XEZ‡¼ÿ±‘h[ µ:ó&úTfL½AµA÷¢g­E$b‘Âó‘'"DQĞsöÖnÔójzK”(bNÁ„½—[á±ëÚ\g=[Ï¾Ã€ÔOd¨UHÑLHØRà˜’oQ›å Ò€g5Z#PcGŒğVÊ!<AZL¹e/Q)ó×¿P˜¦ÿ•@Œ8õ<•›ëÂ›æ¤,Q¿†HÂëÕœ®ºšSr—èT7Â±·¦rÖ[ïpMÏBÑ{XbÿÁ)r@Şó^ ”yItH
-2Z[äRÑÅ>A¢\jP…j{Ü ÀÃ”‚ÃÃŒRĞqªÓvY2,•G·ˆŸ<è´v¡ìo'é@?-ğ&ö8'%û¢OÈÍ#ûªÇÎıFQCŞÂ}í:ÑkH*"ğF6Ià<¯¯Ë"Väïıš$sÕàA!;„ À©òµ:zdÑVEo¡X|ĞÊ±løt&ù™P&ædf€4Å+¦8–.Û_)$©¼Ñç`¼áĞşjãÍëô^.†'ŞĞcışÓí}}›î¹9!Ğ
-b&=·áB{3ÃÔ!EĞåÚ^b0Ô•İbghÚFB5ŞD±Íœ2wœ}Æ™’trqoCªÕËâòÈ1eó° EU=Çòº néøêÎZº›ÇİƒÕp‘dçæv“Ì¦ÀqĞ(Pû fÜ1Ô$7ƒ,`´mã±6ÅÀËÑÄÌÚS<g¹,CH~œJáËÓŞóéã¥ÿTŠÔI0ü×&=Àïj^[À5$ñ¡-ûªÑ5{E·êÉqsP·Ñ(°	 °¯‘Á#ÿ¤©>¬IÆ|"¶r§ÛÀbš6Ò„Ÿ¼¡B~iRq$Ø.0¨z†ë-GoKåmgÄ¼~sK'oKÍŒ¾)AºÜ¶ÛM°âí¦äsP$'vví
-é6Gù'hì@ô¶&–I2Ä÷ q•¢×µÅ>ùñAU‚tz'^®ötº:¦U&%ğó“|sâo—(“RÖ8È­‹ˆ½²·{Ø6¼LÇŠÈí2ˆL	—ÃHÿÍ7„’«áI eİ çÛm¸µ´{¢B*5”ædå”©óKeİhÜA©›9ºTÑ÷¸Îi’-oœ(=Ê‹²*:Xë®ór*Sµ¸ê;(. E}«qİ Ij€‚ ²ÈÙ®*7Îl§}Àœˆå×$©ĞUêè4zwÖ@şÂı#¤s‡»Lge³_o§5Œ{H€{zËv+¨jpÓ¼‚±]€‚-x¸» SÈÛHµ¨0­)…Ûåµ²*Àœ{[2çĞªÄ”ˆt¥Ê@‰Ã»%Ôşôv¿îx¸à!öz»7)(!ëâÓä.ŒI%¼ç€
-æçÚXê,²™QÆD:æ@4&È‘ŒıC"†ş”Z×Õè„,ö‘ ±ø@"ıå3¾Îóãİ#Í2"”šªëîsy’¨èıŠ f»`‰ìƒŠwJK°H\3,SÛğ2Nk¸LÉõh«=ÒyXÕú§¢ª÷ L­E8q¹L/Û-SèèºLA"i( ¿tš‘¥¡gù¹}¡!õÄütÙÉ¶¼ŸÏ3ŞÓ­!8çŒ£r±×Oró[„¥]GéW¶oÿ¬ä›•!mYÓìk¡·9ëw2ÿş›Ü»¼Hµ/cü:|‹ â¸%Šÿ¢â@³âúo*†tÎ€‘n¯¾ÿ¢ HÃŞß9I}Oâÿå}ø€g  # from http://partners.adobe.com/public/developer/en/opentype/glyphlist.txt
+
+% To get things ignored by RdTextFilter() ...
+\newcommand{\I}{#1}
+
+% Experimental:
+\newcommand{\bibcite}{#1}
+\newcommand{\bibshow}{#1}
+‹      eXÛnäÆU`IsÕî:Îoä=¯k±8A°k~m’=Ãö4ÙÜ¾H}}NqØUÅİAu¦/Õu=Å?÷wwwßİİßãïş½{øã÷ÿó_øçÃİİßÜİıİ|üé?Ë¿{Óu.»gë¯ò$Œi‘ŞÑå~p­ñ¼h‡ÿCkrˆ|N#£K!Ç0ÕM3fg¼3ÉvtdÈg¾ršbxuƒÉv´)±^Ñ4®]¤ûŸ~şqùÿácÄU0ĞVnŒÙL›ÿ¾5©Qôù·O¼<M½®•vÓu˜rÈ–_şğdJÍ¶Í.Œ|@L'Ïš×æü•ßÜPr/ê5¦½Ø±c+’ü¥àºŠ¼#$Ú“vl=š¼I=Ûv>*»öRïjL´My¤Ş¥-ÜØ7g«G77©şøÔ8û:a÷ì°zÂ.˜”ÇNƒ ¸\Y÷hÆ¶‡	äÆâ|v£ÈWØÖ«û[ÓyÃkÍF²—{“Wµ/a1Ë/.±;ÚÒf¸k{óyjÛG8£šô&er¼có´>é8¯œ£š#hG˜Ì™7°±u·k@²jßƒséÔïİhMTKL“iõ’óu’§†¡q#%¸äpŠ°Ïúºa*ÙˆF@ÆSˆÒ¯ºH®a³†ñ9øguùMîØf¡Œ°r["1Ë²gW¶ˆ!¥Ş¸¸²ñ>¨$$†K&+•ú¦”~Ç˜^¹ëL6d 6»Áª³\l:Û:/~†û„¤¯ª˜[)uCÉº\ø¶=yU!dX/{n²Šá}gS‹$—ì:vÎœÇ2E;«	¯Î}ç:ÄµZ€M§[*sèğĞ‘œ/5¶s£Œ¼÷ÃõêqÛ.äÉ‡,*…—1™aòrú±+Û•ı»«wM•>ÀBSÅÁP]éúwëÎôbeÕå—¾ı¥ö`Óòû±È™Qu„'Kz$_ælÜÛ/(ö:? qx/EwQ	G§i”].Ğg¼Êyª{7Å¤ğÙ×íP–¯v
+óà5¤å:T·'„”íkd’¬S|?×”m=ø H’]ãNQv- wƒS4ƒm
+…ï*Ş¿¸/<Ûœ¥ÚŸ=áYSqüîí5Á¬)¬šØI_  vT¹t€hª™¿ı…Ê”óü‚$n	±ÍW<õHó˜ûhœºÚ9*â¼/lÂî8Â&rc›.¨^ ^a7œøâ9ˆYîİèêïéâ2kŸ÷ì(öUÜídìdWª±ñª·Åseª™$]ÛWàuÆ2eÕ—n—P ®”•¨æzÇ–(õd¶"0kşø—Óqu±q”Ó·{ëg•½y»OZäï¼­–ßyûºâJßÏ@€•¦~õÃşÖ8Uİr²–iÔæ77–W>{ãQšğÊZĞ3¥íÂÜ8´}Ó[VsO@cAm:>H™ä]!LÄ¿dCJÄZXéB˜.ÑÉ…ààK¶ˆœ7•‚ƒ¹Ø“ê[{to
+×ÈŞxšã¹òŸª
+´¯:}@2 •€HËÄí!J¾<î•Sà0„®ø•}·C{aŞ÷0"Ô*›Úƒ´Q>F®–O„Tµ’^K+Ô…´+úñ¿1Sº•_¥ÃaşmÎ}À³‹Šíon½—ß0íœœ´Æ€Q'è$èrdĞéúÖÕ‡ór½ˆõË,Mx¢÷V­:*(ilö›
+X`Éê‚@m‚j!bˆv.miw¾‚9d'oÈ:¯Õ¥Û)ø+¥/Xd+—Ë§©#ĞÖip dæ“bF@3›TÆxš¨?"J@¤Vœ¨KAX¤BOÆ`“VG%0xD¡":bh•ÿ«jòS„ÖwJnUfÆ  a5Ìä_OkÀÑÀÙ €Q]Ib ÙÒ…™ªóu%õªìªÌ6cAbŒ†+ıÌ¿#îj‚E¤Z®6áªÂş@d6ÑètvR£›àP‰<m‘­mçâÍxIN9‘=UeÚÁ­D&Å§ |gn+ö­r’«*£'“ßá¾Q·²÷s0t(+â@«‹Ü¸¡ r²]ÄNÖ“¬x,Xf	wºªúú)`Ğ9™®ó+Z·¥cô•0ÍxìnH#s\„’µ—Õ=ö|2”*¬ËşÆ«›,kŠQï>÷Ö{#ûÔS¡2’LŸıù×ÿş^”Üyk8mU7| ¥Á¶GH£<	úæ£È&M!Hşl1Îe~Y¯MîJ
+E”ÌW´°ŞZAJÓ¢ K$
+ÂqXm"@)Ê-ø ·}@`bùÒ`:*úgTÍ¤œ‹¿Ğ| TˆõŠhÏ:C€ÀÃnReˆ!p„}]šfìKÑŸqv„Ñ@ UF²OZL2Öy¶­şò–
+hrk…#fdõ}a7CI^¿I×A‘óİ"JÏ_€ºşU¡RıM6QQŒí"r¾çŞÒTèUÿÙÒ—©ÁD¾&ô7õuj—c`ÌCö°qr˜¼uã- V—Z §“h‚@\‘ÂŠ|<@¦)°x”ÇüâZ¶Äf.øöÄûo"‡RyiğLÌ
+"çÙ‰“=HÂf…t¡0I,•±Övq0G½‹ú±óA|xI¢ ,’KàRñ¥¬”‘Š¥êh /kÍ1#Ï¤Â–ñsõZILˆ¶»Ê)(£eşÔ¬ gĞJUƒÿ°tœ±ŠÀÍMf§˜²œV‰›R©t1g­æ´n^ Ğãpé
+™é€B(ç“TÄ#!·!úÁ«ƒ]_Ñ“÷„D™Eñ
+[9Ÿ¡N^«’u7KªÀĞ)ĞHC´&Ó×d¥b6ç³.¼‰Õ3æ$RŞ‡<&¢w6)ßL«+­w·
+%OÜ3Ğ}ƒp"UD=¤»Aì«¯@ÛgTLB,¿ØFİ¿ `¬n:¼DW)áÿĞÿw1  ‹      UWÛR#9MUB®¦æ?ö}_—ÍÀ°E˜İG§ÛİqÅm{|Iÿ¸ÿ´rIÎĞ:m©-éèÂ¿óÁ`0ŒFğû?^oû>ÁÏƒÑ`'¢ŠIèpÇ¢®­Ai&´¶•ˆÖŸ€9xd!R´ÚŠZ™ö-3Ô‰VUpúˆšQíœõQÖh‘À@Ft’;á©Œ7©mÔÛIšn’ÒQÑmÇù{R¤ËJkòÔ;bËC£×•p*fHDÅ¾Oª­ğAF¼Ke¥¯ÔF£­ynûàDÅÖmç”¥U<ò±Î¥(Xñª²¦VùSåÕÆ€6ªe-ÓXß	S|ßì­ŞSp>U6™(½21µ=û„¼)?‰Xéá´QFÕ‘Gµ<¥—ljŒ9/«3KÃÕı-½VM#½4â²¶Dç4c£Õú)Ğû¯ÎMë£V”>KÕJSËLTq‘Ü:ò‚ofÜ=sŒüm”–NÄ-ú›åpQvHfFˆƒúÈ“g­ÀG¼…L˜š€BxG¦zëÅ1 í0°ÓÖÛC‘ áİë7´ß«µì$ÕÅ¤}WEL—uekÔ¡Œæ€SÄ•“ŠCR¿>ÿ‰.«ZZ¸ÛªŠ >szªä³7ÖIĞ25ëô@Ù2ä¡š·t³eùäbQH½-°~w¦˜R„vçÊì¥/-,œ¹¨İÿº¥Ç¿ññÛêuLa‡¦;yZJ¡–ogıkò Ìs>ÑgâˆéŞY»K‚¢Ë<ÄûkĞ,í±'Iê½DêØÉÌK¼ÊçNø¶ç$5)°GœéœdÔYf M„îOyÿÜ©Ê[á«-Ä¦‚§ãÊÜıCßS¡’Z#¦çñşõ‘×?×Ø£ºúTÛEv–=·^
+¦íÔœ=­n¥“''ÍÍz…Ëâİ*ZÖ?Ö˜ÚÌ”­5¹}bgX8áóp(îu† ^…³öF0Oˆ‰Ë“€’=|¾!gŸW·”Bºè‹›Ç”9‘ÈyÑv‚ãè¤—ı8£kxÙ€Ès	”‹@p¿¿YÕy[ÃèTÑ,_–X ‡^¾ßñl&çOÙhã±hE.i›;òÌ¥°-[îìWPªL< ¼†°`*_V7k|}å%5Ÿ¢Û€ß"VÜG¦>O7›€'9EüºkÖÏr±¡dÏ%,å\¾îÃQ'òå ÛAì¹½|ıò@Ïßï(ÕÆqm›†d˜ÎŠw™inÿÅ×fj-Ï'Š.Ôè‚l	§/aWÆAµ&á ›'%—ÔUˆĞ¢¡÷Ÿmã!x¾lŠd úTq¯iSiL*ëÊI½ î®ßó’ ‚–“¿ldlX-‹Ç.÷UúÔ‡Xté¾e½1›"´>Y”È&·Ó¢ ïÖ*ÖjXírvN ¥*#;Åó7Ë¼	NO"[ô°~Ò—ˆ$&œD2ŸÌ¨ÂLHÖšNÒªà¸2Å	ìá²[ gDég2mË©O0İr2³áR3'¯+šhæº††! 0’;uÑÈfRá6”VÁæDí…NàU±ÊÈÚeF,·I!ıÂD[:È`‰ÖtVE˜ÙW`4Á ©Ô.ûÅ¹ƒ™É‘™ æy—ŸîXˆ<0÷ëÏ?>Gã‹HÁÙƒ
+[q@¥¼Øôÿ6né{ğ1úùÇãÃÿ›	31Ï  ‹      EŒM
+Â@…mÁ–Š^Ä½'ğ
+nÓi´¡™f2H=½³èà"É{/ï9 @m[vW$tûír-â\f„úr¤EGZıâ“:´´û;VFá/*{—vÜn>+»wWz±PM6‹r@G²“&ÄÚz,2™…æ,ÿŠ1Do
+Š(²Õ–HâqÆIêkŸò”4Úùø¸¦€†ÒY Wêó   ‹      mYËzâ:Î´¹Ø\’>óg5ûÙBhº!!@NŸY
+[`¶åH6!ı°ó,S2V•ìô†Oõ[—R©îü=¸¹¹ñn:øíÂğ¦ûº{ü×¿ağõææÿ»éÜ0ö'aÈµ–ÊÒ¬I–Ö5àM¦õp09>R^(q©‘1;™rÅ
+qæ¸b1­‡½É‰‰Ç³+êO»u%@Zª;yzşk‚{¬xF+y©{Fw²Y¬ìäÎdƒã.Ó¡¸Ë«åä•…¥R<}dVÃ_[°eæöŠŸ™,ys‹6&+~T 8Úº"ãAµLYRı=O<‹jrhÈƒ(
+‘í½•²°{°«ÆQüÀ'n«u…OšRy"û5©‰Ö<c©]ß¹œoíSİ‹ıÿ3E"2Î2$2™
+–$52º ¨,*ÃU«·Îéı+E¼‰â]häı^TR.è2- xxçâÈír²ÅÍ¤L8Ëˆ¼4î}%5r¯8;åRdvF/d¹(˜=:dªàZà~ŞtŠz:}°ÖÑ!Š2äY¡¤ÀWc–¹{†Æ<<+–ÆÀ³>}àÎ4Áé÷¸QRê‚+Ğç®şó7•ÏÙÑ
+©´3uÊäúp¢ø %‰yt”Ğeš9o1ešËnä€0-yÆA¿µOÖ5¬meŸ¸Û·ŒjøÙ ‚©l½~Ø8£½1!_¦9ŠhıJâÚLp[³Léãò¥¾İÒğ/\R¦%\MÏËÂ}×ÀÒ¨+ØA$x—C+²³ j´‹4ví›]4GkŠ¤_mğàĞŞÃı‡äß#ğCJádû6„àÁFÁê_“Q‹Æ§¼Ò7‹ €À®¸¢ñ3Oèë¹¡
+Ş“Q$ÂXàh~áâa$µ×³Ğ­…ŠJñ~ƒ’›4å™qÚŠÈ$ uMféPªÿr•{€('f,!ûË¥Õ-â­fè6†àÄxvæ£9Š}¶Ø®'Sô<áiÓ"BÃÚ{ eÇiÍÖVü­:g$³Îl»±
+ÌÊ0ÎÊ¿„œG®Éò5wí v4¨rÂ1ïñqgÅüFáÄÿĞ¤KkÈY£-?.èR¶!ÓtTÿQªBQxTœßo,Ãb0Üik5w‡2‹Z]`|¿ùdeÕw>ÙL¿Ù+Y©HÌkšN­'éÃƒ.‡¸Èâ#ÇÛ[:jºà ±ç±Ô(¥Èí%½£8 3ôpó¥½P†˜““<¶úT¨]s)h^Ş|ı@CTù£’{Ü
+ÆøpóWŒnAÌL4¦›@å9+Rfİyğ'gyl„¾‹9¸q©A¡APÿlÁdá^,Qh±L¥\iO¤½—÷.ø£A'.ÒáŸ3ë0b`^¹¬’å°‚7•¾÷j™¸‘ÑÍø0á¸¦Îb6³§xàÑpˆ©ÆH€ÕŸET²mÀÀ:ÒF†Û™I¬öAhá*Ã 2®è·2Š\‘µb7L;s˜ÒàÑ[¼lp¸Ù!ç?—VÛüï,”{2“Î÷ÉÖfTş!ùGj¥I§;ß×³¹åè‡Làõ¤’g«*'%4¹ÿC•ú„É¶ÿ£T~Œ‹§&İ[N'Û]2Êy»&³Agº|ÀâcIúî-¿¡A%h)ã:åjDşrñä$2d‰1Vûİ üDAßÑuéjEĞq`—PW%"–2¢ı”İ ™Ñ‰„6‘§2'êê¼>c7eá³½äpÅb–°Ş­9eYÌŠß¶·rë: vËÉ=R¬H˜õ>((”–hõ½”™ªÏò°šZì¬¦«)Â6põSAÊQì‰AŞ­XèØ•oP“Y¬$SŠYõB[HCƒôsĞ^*2â¯¥l:ÿG
+¹@ÂÀùàİÜœ>˜t(#ñú5„â^-gxÕå“ÀTf²¶½VÉŞj;Ã'*“Bà{bÿA©t@®Ş_0¸2,uIe„Ú2\äZôáÅ>AcÂœ+¨Bº¹†İÀ{ÂáƒÆÓ³ÖQ&³v%3,ãG·M0~’YíZÉ³ß€~V¦àeB<ìy†úöE,7ÏäÃS8TİJRêlH×¹ŞBƒ—2y¥†}Y‰À8à×$š±Ï
+	%Ê®oĞQ)ƒ¶zJØ®À„Ug’Ÿ3¡ÊKcÜ0bJî²ıC•ĞN
+áG÷Gol^À÷r1{â>Ö¯ßØŞ×7¢›F- –âãxk*ß×Sª:0ÄÈºÆôÜË#d‡ u!#·>˜¸‘ƒÖñGbò	§2åŸ± <äNúî­QµzyR)Ö¬Ÿæ¸¨*I^WÀ-Ës™|@‰DÙLwı¼]Ø 6XC„Ùºéà87Ys6jÚ>€9õ¤‚š¤v“”4BÒ¦€ ˜!8<œØƒY{ŒS£\ó2‚¤È).¾¼¼Ø{¾ìlõ_J–9‰‡ÿÖ¤û£Î[ğ[©K`itéPD¦”lèNWí^»«8Ü îäaD €.c3[ÙÜ)ş;UöaKsbËÒQ@×»¹$çj#=@H'úW*¢é×>EÍÜ`OQ-µ¡âmPå¼Íó™—ïn9æm°AÒW%ˆŸ:‡ÛÉ:ğ-¶å|šæÄ¹á"cÁİäP‚F„¯aêlŞ˜ÄSÈ˜ƒ1Òİì“£4”ÜéÇxZìñtqÌª€Jàëwbu›
+•aºèTÊ"&·ímŸÖ(…§5-“	Ä*TÏm¡+¥ÛÒÒ¡Œk¸PY·à'ğù¶kjWm_°Óo
+SJ]€`Š7Ò×j½Ñ„ò9wt©¢÷r«	)•©‹œˆ>ÔEYU+¤u·ºÜGBU-ª¤Gjã—¼Õ;o€(5@A Xšíª:åLvÚÌ	i~M¢Ê]¥™N³ÑBgä:Ô“²´v¸Ëe^6ÿ20ÓÆ=@À=½e»T5"¨o_AØ®@A<Ø^Ç)è6R-*TkJáv¬
+°#çŞ†Ô´ "^•Ä’À-ÂG©RGâğn)¶T½í_4œÓĞözÛwÎ0cëìbSê.ŒQ%¼]ˆ•önjm¬ÚÌ°ˆAcb™P¤!äHÆü'’2…ÿ‹ŒëjtWƒ€}¤ÖXü+À-ıegSÂÎîùág)q‰eywW¸Uô~E ³]°DòAÅóÈ,Ò®”™i¢)§İ\fD|´Ñî<	¬jıYÒÄªwPfÆ"œÀ]f×JĞí«–Düt[f ‘,b€:ÎRá³¼n~âûl~	ºì¤cŞënJÃG¼5gM¸Uıÿ åæ·Z¡]GéW	²oÿ,ø»‘!nYÓäk-‚os–4ÿş;ß»©üäb_&öëà=†ˆã–3şO‘„’×I‚Ôìi–Ö(îöÿû?)dØ{§á…²ØKšüP›
+¯ó  # from http://partners.adobe.com/public/developer/en/opentype/glyphlist.txt
 A;0041
 AE;00C6
 AEacute;01FC
@@ -7305,7 +7334,13 @@ ORGANIZATION:
 
 License: BSD_3_clause + file LICENSE
 
-in file DESCRIPTION.
+in file DESCRIPTION.  
+
+(Use
+
+ORGANIZATION: copyright holder
+
+if there is no appropriate organization.)
 
 ************************************************************************
 
@@ -9634,7 +9669,15 @@ Name: CeCILL
 Abbrev: CeCILL
 Version: 2
 FSF: free (https://www.gnu.org/licenses/license-list.html#CeCILL)
-URL: http://www.cecill.info/licences/Licence_CeCILL_V2-en.txt
+URL: https://www.cecill.info/licences/Licence_CeCILL_V2-en.txt
+FOSS: yes
+
+Name: CeCILL
+Abbrev: CeCILL
+Version: 2.1
+SSS: CECILL-2.1
+OSI: open (https://opensource.org/license/cecill-2-1/)
+URL: https://www.cecill.info/licences/Licence_CeCILL_V2.1-en.txt
 FOSS: yes
 
 Name: FreeBSD License
@@ -9968,7 +10011,7 @@ mkfigs:
 install-tests:
 	@if test -d tests; then \
 	  mkdir -p $(top_builddir)/library/$(pkg)/tests; \
-	  cp tests/* $(top_builddir)/library/$(pkg)/tests; \
+	  cp -R tests/* $(top_builddir)/library/$(pkg)/tests; \
 	fi
 
 
@@ -24932,6 +24975,21 @@ EXECUTE {end.bib}
 \DeclareOption{beramono}{\setboolean{Rd@use@beramono}{true}}
 \DeclareOption{inconsolata}{\setboolean{Rd@use@inconsolata}{true}}
 \ProcessOptions
+
+% The above fonts will not work with modern LaTeX engines.
+\IfFileExists{iftex.sty}{\RequirePackage{iftex}}{}
+\@ifpackageloaded{iftex}{\ifPDFTeX\else%
+  \setboolean{Rd@use@times}{false}%
+  \setboolean{Rd@use@lm}{false}%
+  \setboolean{Rd@use@beramono}{false}%
+  \setboolean{Rd@use@inconsolata}{false}%\
+  \fi}
+
+\newboolean{Rd@graphicspath@needs@quotes}
+\@ifl@t@r\fmtversion{2019/10/01}%
+  {\setboolean{Rd@graphicspath@needs@quotes}{false}}%
+  {\setboolean{Rd@graphicspath@needs@quotes}{true}}
+
 \RequirePackage{longtable}
 \setcounter{LTchunksize}{250}
 \ifthenelse{\boolean{Rd@use@hyper}}
@@ -25024,11 +25082,15 @@ EXECUTE {end.bib}
 \newlength{\ldescriptionwidth}
 \newcommand{\ldescriptionlabel}[1]{%
   \settowidth{\ldescriptionwidth}{{#1}}%
-  \ifdim\ldescriptionwidth>\labelwidth
-    {\parbox[b]{\labelwidth}%
-      {\makebox[0pt][l]{#1}\\[1pt]\makebox{}}}%
+  \ifdim\ldescriptionwidth>0.8\textwidth
+    \makebox[\labelwidth][l]{\parbox[b]{0.8\textwidth}{#1\\[1pt]\makebox{}}}%
   \else
-    \makebox[\labelwidth][l]{{#1}}%
+    \ifdim\ldescriptionwidth>\labelwidth
+      {\parbox[b]{\labelwidth}%
+        {\makebox[0pt][l]{#1}\\[1pt]\makebox{}}}%
+    \else
+      \makebox[\labelwidth][l]{{#1}}%
+    \fi
   \fi
   \hfil\relax}
 \newenvironment{ldescription}[1][1in]%
@@ -25171,11 +25233,15 @@ EXECUTE {end.bib}
 % Rd2latex() should never let \Sexpr through to here.
 \newcommand\Sexpr[2][]{{\normalfont\texttt{\bsl Sexpr[#1]\{#2\}}}}
 
+% Texinfo 7.1 says that it is planned to change @var "in the next
+% release to use a variable-width, slanted roman font in all contexts"
+% as we apparently have done forever.
 \newcommand{\var}[1]{{\normalfont\textsl{#1}}}
 
 \newcommand{\dfn}[1]{\textsl{#1}}
 \let\Cite=\dfn
 
+\newcommand{\abbr}[1]{#1}
 \newcommand{\acronym}[1]{\textsc{\lowercase{#1}}}
 \newcommand{\kbd}[1]{{\normalfont\texttt{\textsl{#1}}}}
 

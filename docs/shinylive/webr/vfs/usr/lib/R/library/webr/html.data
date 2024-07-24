@@ -12,7 +12,7 @@
 <div style="text-align: center;">
 <a href="../../../doc/html/packages.html"><img class="arrow" src="../../../doc/html/left.jpg" alt="[Up]" /></a>
 <a href="../../../doc/html/index.html"><img class="arrow" src="../../../doc/html/up.jpg" alt="[Top]" /></a>
-</div><h2>Documentation for package &lsquo;webr&rsquo; version 0.3.1</h2>
+</div><h2>Documentation for package &lsquo;webr&rsquo; version 0.4.0</h2>
 
 <ul><li><a href="../DESCRIPTION">DESCRIPTION file</a>.</li>
 </ul>
@@ -49,10 +49,14 @@
 <td>Install missing packages from the default webR binary repo</td></tr>
 <tr><td style="width: 25%;"><a href="shim_install.html">shim_install</a></td>
 <td>Shim functions from base R</td></tr>
+<tr><td style="width: 25%;"><a href="syncfs.html">syncfs</a></td>
+<td>Synchronise the Emscripten virtual filesystem</td></tr>
 <tr><td style="width: 25%;"><a href="test_package.html">test_package</a></td>
 <td>Test an installed R package by running the package examples and tests</td></tr>
 <tr><td style="width: 25%;"><a href="mount.html">unmount</a></td>
 <td>Mount an Emscripten filesystem object</td></tr>
+<tr><td style="width: 25%;"><a href="viewer_install.html">viewer_install</a></td>
+<td>Generate an output message when a URL is browsed to</td></tr>
 </table>
 </div></body></html>
 @media screen {

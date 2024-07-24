@@ -1,30 +1,29 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Schizomida Trait Data Base (STDB)</title>
-    <link rel="shortcut icon" type="image/ico" href="/Schizomida/favicon.ico"/>
-    <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
     <script
       src="./shinylive/load-shinylive-sw.js"
       type="module"
     ></script>
     <script type="module">
-      import { runApp } from "./shinylive/shinylive.js";
-      const response = await fetch("./app.json");
-      if (!response.ok) {
-        throw new Error("HTTP error loading app.json: " + response.status);
-      }
-      const appFiles = await response.json();
-
-      const appRoot = document.getElementById("root");
-      runApp(appRoot, "viewer", {startFiles: appFiles}, "r");
+      import { runExportedApp } from "./shinylive/shinylive.js";
+      runExportedApp({
+        id: "root",
+        appEngine: "r",
+        relPath: "",
+      });
     </script>
     <link rel="stylesheet" href="./shinylive/style-resets.css" />
     <link rel="stylesheet" href="./shinylive/shinylive.css" />
+    <link rel="shortcut icon" type="image/ico" href="/Schizomida/favicon.ico"/>
+    <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
   </head>
   <body>
+    
     <div style="height: 100vh; width: 100vw" id="root"></div>
+    
   </body>
 </html>
