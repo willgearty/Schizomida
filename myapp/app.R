@@ -47,7 +47,7 @@ body_plan_html <- includeHTML("data/body_plan_caption.htm")
 
 # load figure captions
 fig_captions <- read.csv("data/figure_captions.csv")
-fig_cols <- gsub(".png", "", fig_captions$Filename)
+fig_cols <- fig_captions$Filename
 
 # clean data ----
 # make a function to clean strings for use as element ids
@@ -206,7 +206,7 @@ server <- function(input, output, session) {
                                                         cols$filt_clean[i], ".png"),
                                            alt = cols$filt[i], style = "max-height: 60vh; max-width: 100%;"),
                                        style = "text-align: -moz-center; text-align: -webkit-center;"),
-                                   div(fig_captions$Caption[match(paste0(cols$filt_clean[i], ".png"),
+                                   div(fig_captions$Caption[match(cols$filt_clean[i],
                                                                   fig_captions$Filename)]),
                                    size = "l", easyClose = TRUE)
               # insert dismiss button in the header

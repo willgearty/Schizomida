@@ -29,7 +29,7 @@ jobs:
           install.packages("pak", repos = "https://r-lib.github.io/p/pak/dev/")
           pak::pkg_install(c("cpp11", "shiny", "shinyjs", "dplyr", "openxlsx", "DT",
                              "janitor", "htmltools", "fontawesome", "prompter", "bslib",
-                             "shinylive"))
+                             "shinylive", "tiff", "png"))
         shell: Rscript {0}
 
       - name: Convert data
