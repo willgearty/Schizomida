@@ -17,6 +17,10 @@ write.csv(shiny_schiz_orig, "myapp/data/STDB.csv", row.names = FALSE)
 write.csv(taxonomy_syn, "myapp/data/description_history.csv",
           row.names = FALSE)
 
+# copy about and reference HTML ----
+file.copy("data/STDB_about.htm", "myapp/data/STDB_about.htm", overwrite = TRUE)
+file.copy("data/STDB_references.htm", "myapp/data/STDB_references.htm", overwrite = TRUE)
+
 # copy figure captions ----
 tmp <- read.xlsx("data/drawings_database/figure_captions.xlsx", sheet = "Sheet1")
 write.csv(tmp, "myapp/data/figure_captions.csv", row.names = FALSE)
