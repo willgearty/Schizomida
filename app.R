@@ -1,42 +1,51 @@
+# This file is for running the shiny app locally.
+# Any changes to this file will be automatically copied to the
+# shinylive source code by convert_data.R.
+
 # The Schizomid Trait Database - ShinyApp
 # William Gearty and Sandro Pascal Müller
 # 2023-09-07
-
-# this file is for running the shiny app locally
-# changes should be copied to myapp/app.R
 
 # relevant packages ----
 library(shiny)
 library(shinyjs)
 library(dplyr)
-library(openxlsx)
 library(DT)
 library(janitor)
 library(htmltools)
 library(fontawesome)
 library(prompter)
-library(Hmisc)
 library(bslib)
 
+# copied from Hmisc
+`%nin%` <- function(x, table) match(x, table, nomatch = 0) == 0
+
+all.is.numeric <- function(x, what = c("test", "vector", "nonnum"), extras = c(".", "NA")) {
+  what <- match.arg(what)
+  x <- sub("[[:space:]]+$", "", x)
+  x <- sub("^[[:space:]]+", "", x)
+  xs <- x[x %nin% c("", extras)]
+  if (!length(xs) || all(is.na(x))) 
+    return(switch(what, test = FALSE, vector = x, nonnum = x[0]))
+  isnon <- suppressWarnings(!is.na(xs) & is.na(as.numeric(xs)))
+  isnum <- !any(isnon)
+  switch(what, test = isnum, vector = if (isnum) suppressWarnings(as.numeric(x)) else x, 
+         nonnum = xs[isnon])
+}
+
 # load data ----
-shiny_schiz_orig <- read.xlsx('data/STDB_data.xlsx',
-                              sheet = 'STDB',
-                              fillMergedCells = TRUE)
+shiny_schiz_orig <- read.csv("data/STDB.csv", check.names = FALSE)
 
-# edit references subheading
-shiny_schiz_orig[1, ncol(shiny_schiz_orig)] <- "References"
-
-taxonomy_syn <- read.xlsx('data/STDB_data.xlsx',
-                          sheet = 'Species description history')
+taxonomy_syn <- read.csv("data/description_history.csv", check.names = FALSE)
 colnames(taxonomy_syn) <- gsub(".", " ", colnames(taxonomy_syn), fixed = TRUE)
 
 # convert docx to filtered html, then convert to UTF-8
 references_html <- includeHTML("data/STDB_references.htm")
 about_html <- includeHTML("data/STDB_about.htm")
-body_plan_html <- includeHTML("data/drawings_database/body_plan_caption.htm")
+body_plan_html <- includeHTML("data/body_plan_caption.htm")
 
 # load figure captions
-fig_captions <- read.xlsx("data/drawings_database/figure_captions.xlsx", sheet = "Sheet1")
+fig_captions <- read.csv("data/figure_captions.csv")
 fig_cols <- fig_captions$Filename
 
 # clean data ----
@@ -141,6 +150,37 @@ server <- function(input, output, session) {
   proxy2 <- dataTableProxy('table2')
   
   # observers ----
+  ## navigation and sub-urls ----
+  ## modified from https://github.com/kiegan/wait-thats-shiny
+  ## update to sub-page/sub-URL when we move to a new tab from the navbar
+  #observeEvent(session$clientData$url_hash, {
+  observeEvent(input$currentHash, {
+    print("hello2")
+    currentHash <- sub("#", "", input$currentHash)
+    print(currentHash)
+    print(input$navbarID)
+    if (is.null(input$navbarID) || !is.null(currentHash) && currentHash != input$navbarID) {
+      print("hello3")
+      freezeReactiveValue(input, "navbarID")
+      nav_select("navbarID", selected = currentHash, session)
+    }
+  }, priority = 1)
+
+  ## push changes to the sub-URL to the browser history so that back/forward browser buttons work
+  observeEvent(input$navbarID, {
+    # currentHash <- sub("#", "", session$clientData$url_hash) # might need to wrap this with `utils::URLdecode` if hash contains encoded characters (not the case here)
+    currentHash <- sub("#", "", input$currentHash)
+    pushQueryString <- paste0("#", input$navbarID)
+    if (is.null(currentHash) || currentHash != input$navbarID) {
+      freezeReactiveValue(input, "navbarID")
+      # if being run locally
+      # updateQueryString(pushQueryString, mode = "push", session)
+      # if being run as a shinylive app
+      runjs(paste0("window.parent.history.pushState(null, null, '", pushQueryString, "')"))
+      updateTextInput(session, "currentHash", value = pushQueryString)
+    }
+  }, priority = 0)
+
   ## modal popups ----
   ### row selection ----
   # modal popup when selecting a row
@@ -782,6 +822,7 @@ ui <- {
       tags$script(src = "tableexport.min.js"),
       tags$script(src="https://cdn.jsdelivr.net/npm/darkmode-js@1.5.7/lib/darkmode-js.min.js")
     ),
+    # JS for dark mode widget
     tags$script(HTML("function addDarkmodeWidget() {
         new Darkmode({label: '🌓', left: '32px', right: 'unset'}).showWidget();
       }
@@ -790,13 +831,21 @@ ui <- {
         $('.navbar-collapse').append($(\"<a href='https://github.com/willgearty/Schizomida/issues' target='_blank' class='btn btn-primary'>Contribute</a>\"));
       });"
     )),
+    # hacky JS/HTML for handling back/forward button
+    tags$script(HTML("$(function() {
+        $(window.parent).on('hashchange', function (e) {
+          $('#currentHash').val(window.parent.location.hash).change();
+        });
+      });"
+    )),
+    hidden(textInput("currentHash", NULL, value = "#database")),
     ## title ----
     titlePanel('Schizomida Trait Data Base (STDB)'),
     ## panels ----
     page_navbar(theme = bs_theme(version = 5, preset="bootstrap"),
-      bg = "#f7f6f4", gap = "15px",
+      bg = "#f7f6f4", gap = "15px", id = "navbarID",
       ### database ----
-      nav_panel("Database", layout_sidebar(
+      nav_panel("Database", value = "database", layout_sidebar(
             fluidRow(DT::dataTableOutput('table1'),
                      div(
                        div(paste0("(", length(unique(shiny_schiz$Species)), " unique species)"),
@@ -1014,7 +1063,7 @@ ui <- {
             )
           )),
       ### species hist. ----
-      nav_panel("Species Description History", layout_sidebar(
+      nav_panel("Species Description History", value = "history", layout_sidebar(
             fluidRow(DT::dataTableOutput('table2'), style = "width: 100%;"),
             #### filters ----
             sidebar = sidebar(width = "35%",
@@ -1068,7 +1117,7 @@ ui <- {
           )),
       ### general anatomy ----
       nav_panel(
-        "Schizomid General Anatomy",
+        "Schizomid General Anatomy", value = "anatomy",
         div(img(src = paste0("https://williamgearty.com/Schizomida/drawings_database/body_plan.png"),
                     alt = "Schizomida body plan",
                     style = "max-height: 70vh; max-width: 100%; float: left;"),
@@ -1077,12 +1126,12 @@ ui <- {
       ),
       ### references ----
       nav_panel(
-            "Full References",
+            "Full References", value = "references",
             div(references_html, style = "overflow-y: scroll; height: calc(90vh - 120px); height: calc(90dvh - 120px);")
           ),
       ### about ----
       nav_panel(
-            "About and Contact",
+            "About and Contact", value = "about",
             div(about_html, style = "overflow-y: scroll; height: calc(90vh - 120px); height: calc(90dvh - 120px);")
           )
     )
