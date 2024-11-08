@@ -49,8 +49,8 @@ Xie, Y., Cheng, J., & Tan, X. (2023). DT: A Wrapper of the JavaScript Library �
 ## Contact
 
 ### Schizomida Trait Data Base (STDB)
-[Sandro Pascal Müller](S.Muller1@universityofgalway.ie)\
-[Ilian De Francesco Magnussen](ilian.de.francesco.magnussen@gmail.com)
+[Sandro Pascal Müller](https://www.researchgate.net/profile/Sandro-Mueller-3)\
+[Ilian De Francesco Magnussen](https://www.researchgate.net/profile/Ilian-De-Francesco-Magnussen)
 
 ### Shiny App Development
 [William Gearty](https://github.com/willgearty)
