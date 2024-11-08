@@ -155,12 +155,8 @@ server <- function(input, output, session) {
   ## update to sub-page/sub-URL when we move to a new tab from the navbar
   #observeEvent(session$clientData$url_hash, {
   observeEvent(input$currentHash, {
-    print("hello2")
     currentHash <- sub("#", "", input$currentHash)
-    print(currentHash)
-    print(input$navbarID)
     if (is.null(input$navbarID) || !is.null(currentHash) && currentHash != input$navbarID) {
-      print("hello3")
       freezeReactiveValue(input, "navbarID")
       nav_select("navbarID", selected = currentHash, session)
     }
