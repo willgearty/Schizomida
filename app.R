@@ -51,7 +51,7 @@ fig_cols <- fig_captions$Filename
 # clean data ----
 # make a function to clean strings for use as element ids
 idEscape <- function(x) {
-  gsub("[^a-zA-Z0-9_]", "-", x)
+  gsub("[^a-zA-Z0-9_]", "_", x)
 }
 
 # set up table of headings and subheadings
@@ -66,7 +66,7 @@ cols <- data.frame(cat = colnames(shiny_schiz_orig),
     grepl("References", cat) ~ 6,
     .default = 2 # Prosoma
   )) %>%
-  mutate(col_clean = idEscape(col)) %>% # replace special characters with dashes
+  mutate(col_clean = idEscape(col)) %>% # replace special characters with underscores
   mutate(filt = gsub("(\\s\\(min\\)|\\s\\(max\\))", "", col)) %>%
   mutate(filt_clean = idEscape(filt)) %>%
   mutate(dupe = duplicated(filt))
