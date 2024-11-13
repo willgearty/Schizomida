@@ -724,15 +724,19 @@ server <- function(input, output, session) {
 
 # ui.R ----
 ui <- {
-  fluidPage(
+  page_fillable(
     theme = bs_theme(version = 5, preset="bootstrap"),
+    fillable_mobile = TRUE,
     useShinyjs(),
     use_prompt(),
     ## head ----
     tags$head(
       tags$style(
         HTML(
-          "#Genus option, #Genus + div, #Species option, #Species + div {
+        "body > h2 {
+           margin-left: .5rem
+         }
+         #Genus option, #Genus + div, #Species option, #Species + div {
            font-style: italic;
          }
          .dataTables_wrapper {
@@ -809,6 +813,9 @@ ui <- {
          .nav li a {
            margin-right: 10px !important;
            font-size: large !important;
+         }
+         .darkmode--activated img {
+           filter: invert(100%);
          }
          "
         ),
@@ -1063,7 +1070,7 @@ ui <- {
             fluidRow(DT::dataTableOutput('table2'), style = "width: 100%;"),
             #### filters ----
             sidebar = sidebar(width = "35%",
-                              card(fluidRow(h2("Filters"),
+                              card(fluidRow(h4("Filters"),
                                             accordion(multiple = FALSE,
                                                       accordion_panel(
                                                         "Taxonomy",
@@ -1118,17 +1125,17 @@ ui <- {
                     alt = "Schizomida body plan",
                     style = "max-height: 70vh; max-width: 100%; float: left;"),
             div(body_plan_html),
-            style = "overflow-y: scroll; height: calc(90vh - 120px); height: calc(90dvh - 120px);")
+            style = "overflow-y: scroll; flex: 1 1 auto;")
       ),
       ### references ----
       nav_panel(
             "Full References", value = "references",
-            div(references_html, style = "overflow-y: scroll; height: calc(90vh - 120px); height: calc(90dvh - 120px);")
+            div(references_html, style = "overflow-y: scroll; flex: 1 1 auto;;")
           ),
       ### about ----
       nav_panel(
             "About and Contact", value = "about",
-            div(about_html, style = "overflow-y: scroll; height: calc(90vh - 120px); height: calc(90dvh - 120px);")
+            div(about_html, style = "overflow-y: scroll; flex: 1 1 auto;;")
           )
     )
   )
