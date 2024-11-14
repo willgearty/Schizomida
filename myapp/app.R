@@ -846,7 +846,6 @@ ui <- {
     titlePanel('Schizomida Trait Data Base (STDB)'),
     ## panels ----
     page_navbar(theme = bs_theme(version = 5, preset="bootstrap"),
-      bg = "#f7f6f4", gap = "15px", id = "navbarID",
       ### database ----
       bg = "#f7f6f4", gap = "0px", id = "navbarID", selected = "database",
       nav_panel("Database", value = "database", layout_sidebar(
