@@ -293,13 +293,13 @@ server <- function(input, output, session) {
                    unname(unlist(sapply(cols$filt[cols$tab == i],
                                         function(x) grep(x, colnames(shiny_schiz), fixed = TRUE) - 1))))
           lapply(cols$filt_clean[cols$tab == i],
-                 function(j) runjs(paste0("$('#", j, "-checkbox1').attr('checked', true).trigger('change');")))
+                 function(j) runjs(paste0("$('#", j, "-checkbox1').prop('checked', true).trigger('change');")))
         } else {
           hideCols(proxy1,
                    unname(unlist(sapply(cols$filt[cols$tab == i],
                                         function(x) grep(x, colnames(shiny_schiz), fixed = TRUE) - 1))))
           lapply(cols$filt_clean[cols$tab == i],
-                 function(j) runjs(paste0("$('#", j, "-checkbox1').attr('checked', false).trigger('change');")))
+                 function(j) runjs(paste0("$('#", j, "-checkbox1').prop('checked', false).trigger('change');")))
         }
       },
       ignoreInit = TRUE
@@ -447,7 +447,7 @@ server <- function(input, output, session) {
     if (!is.null(input$Genus)) dat <- dat %>% filter(Genus %in% input$Genus)
     choices <- sort(unique(as.character(dat$Species)))
     updateSelectizeInput(inputId = "Species", choices = choices, server = TRUE)
-  }, ignoreNULL = FALSE)
+  }, ignoreNULL = FALSE, ignoreInit = TRUE)
 
   # update sex and character filters if family/subfamily/genus/species is changed
   observeEvent(list(input$Family, input$Subfamily, input$Genus, input$Species), {
@@ -458,7 +458,7 @@ server <- function(input, output, session) {
     if (!is.null(input$Species)) dat <- dat %>% filter(Species %in% input$Species)
     choices <- sort(unique(as.character(dat$Sex)))
     updateSelectizeInput(inputId = "Sex", choices = choices, server = TRUE)
-    
+
     # update other character filters
     for (i in which(cols$tab %in% 2:6 & !cols$dupe & sapply(shiny_schiz, Negate(is.numeric)))) {
       if (!is.numeric(dat[[cols$col[i]]])) {
@@ -494,7 +494,7 @@ server <- function(input, output, session) {
     if (!is.null(input$Genus2)) dat <- dat %>% filter(Genus %in% input$Genus2)
     choices <- sort(unique(as.character(dat$Species)))
     updateSelectizeInput(inputId = "Species2", choices = choices, server = TRUE)
-  }, ignoreNULL = FALSE)
+  }, ignoreNULL = FALSE, ignoreInit = TRUE)
   
   ## show/hide filters ----
   # update male/female filters when sex is changed
@@ -509,7 +509,7 @@ server <- function(input, output, session) {
         sapply(idEscape(female_names), hideElement)
       }
     }
-  }, ignoreNULL = FALSE)
+  }, ignoreNULL = FALSE, ignoreInit = TRUE)
   
   # datatables ----
   ## data table ----
