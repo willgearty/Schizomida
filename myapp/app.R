@@ -88,13 +88,13 @@ shiny_schiz[, num_cols] <- round(apply(shiny_schiz_clean[, num_cols], 2, all.is.
 # Get male and female columns
 male_names <- Reduce(union,
                      list(
-                       grep("Male:", cols$col, fixed = TRUE, value = TRUE),
+                       grep("(male", cols$col, fixed = TRUE, value = TRUE),
                        cols$col[grepl("(male", cols$cat, fixed = TRUE)],
                        grep("(male", cols$cat, fixed = TRUE, value = TRUE)
                      ))
 female_names <- Reduce(union,
                        list(
-                         grep("Female:", cols$col, fixed = TRUE, value = TRUE),
+                         grep("(female", cols$col, fixed = TRUE, value = TRUE),
                          cols$col[grepl("(female", cols$cat, fixed = TRUE)],
                          grep("(female", cols$cat, fixed = TRUE, value = TRUE)
                        ))
@@ -784,6 +784,9 @@ ui <- {
            color: white !important;
            border: solid white !important;
          }
+         .darkmode--activated .modal-content img {
+           filter: invert(100%);
+         }
          .sidebar-content {
            padding: 0 !important;
          }
@@ -814,16 +817,13 @@ ui <- {
            margin-right: 10px !important;
            font-size: large !important;
          }
-         .darkmode--activated img {
-           filter: invert(100%);
-         }
          "
         ),
       ),
       tags$script(src = "xlsx.core.min.js"),
       tags$script(src = "FileSaver.min.js"),
       tags$script(src = "tableexport.min.js"),
-      tags$script(src="https://cdn.jsdelivr.net/npm/darkmode-js@1.5.7/lib/darkmode-js.min.js")
+      tags$script(src = "https://cdn.jsdelivr.net/npm/darkmode-js@1.5.7/lib/darkmode-js.min.js"),
     ),
     # JS for dark mode widget
     tags$script(HTML("function addDarkmodeWidget() {
