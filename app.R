@@ -16,6 +16,7 @@ library(htmltools)
 library(fontawesome)
 library(prompter)
 library(bslib)
+library(reactable)
 
 # copied from Hmisc
 `%nin%` <- function(x, table) match(x, table, nomatch = 0) == 0
@@ -146,7 +147,6 @@ rowCallback <- c(
 
 # server.R ----
 server <- function(input, output, session) {
-  proxy1 <- dataTableProxy('table1')
   proxy2 <- dataTableProxy('table2')
   
   # observers ----
@@ -180,7 +180,7 @@ server <- function(input, output, session) {
   ## modal popups ----
   ### row selection ----
   # modal popup when selecting a row
-  observeEvent(input$table1_rows_selected, {
+  observeEvent(input$show_details, {
     data <- shiny_schiz
     for (i in seq_len(nrow(cols))) {
       input_value <- input[[cols$filt_clean[i]]]
@@ -209,11 +209,11 @@ server <- function(input, output, session) {
     modal <- modalDialog(
       tags$table(
         lapply(colnames(data), function(name) {
-          tags$tr(tags$th(name), tags$td(data[[name]][input$table1_rows_selected]))
+          tags$tr(tags$th(name), tags$td(data[[name]][input$show_details]))
         })
       ),
-      title = paste0(data$Species[input$table1_rows_selected], " (",
-                     data$Sex[input$table1_rows_selected], ")"),
+      title = paste0(data$Species[input$show_details], " (",
+                     data$Sex[input$show_details], ")"),
       size = "l",
       easyClose = TRUE
     )
@@ -243,41 +243,23 @@ server <- function(input, output, session) {
 
   ## show/hide columns ----
   ### table 1 ----
-  # update all table1 columns based on checkboxes
-  checkbox1_rows <- which(cols$tab %in% 1:5 & !cols$dupe)
-  update_cols1 <- function() {
-    # hide columns in table1
-    show_cols <- c()
-    hide_cols <- c()
-    for (i in checkbox1_rows) {
-      if (input[[paste0(cols$filt_clean[i], "-checkbox1")]]) {
-        show_cols <- c(show_cols, cols$filt[i])
-      } else {
-        hide_cols <- c(hide_cols, cols$filt[i])
-      }
-    }
-    if (length(show_cols > 0)) {
-      showCols(proxy1,
-               unname(sapply(show_cols,
-                             function(x) grep(x, colnames(shiny_schiz), fixed = TRUE) - 1)))
-    }
-    if (length(hide_cols > 0)) {
-      hideCols(proxy1,
-               unname(sapply(hide_cols,
-                             function(x) grep(x, colnames(shiny_schiz), fixed = TRUE) - 1)))
-    }
-  }
-  
   # monitor checkboxes for table1
-  lapply(checkbox1_rows, function(i) {
+  lapply(which(cols$tab %in% 1:5 & !cols$dupe), function(i) {
     observeEvent(
       input[[paste0(cols$filt_clean[i], "-checkbox1")]],
       {
         if (input[[paste0(cols$filt_clean[i], "-checkbox1")]]) {
-          showCols(proxy1, grep(cols$filt[i], colnames(shiny_schiz), fixed = TRUE) - 1)
+          for (col in cols$col[which(cols$filt_clean == cols$filt_clean[i])]) {
+            runjs(paste0("Reactable.toggleHideColumn('table1', '", col,"', false);"))
+          }
         } else {
-          hideCols(proxy1, grep(cols$filt[i], colnames(shiny_schiz), fixed = TRUE) - 1)
+          for (col in cols$col[which(cols$filt_clean == cols$filt_clean[i])]) {
+            runjs(paste0("Reactable.toggleHideColumn('table1', '", col,"', true);"))
+          }
         }
+        runjs("$('.rt-sticky').css({'position': 'relative', 'left': 'unset'}).removeClass('rt-sticky');
+               $('#freeze_btn').removeClass('active');")
+        
       },
       ignoreInit = TRUE
     )
@@ -289,15 +271,9 @@ server <- function(input, output, session) {
       input[[paste0("hide_all_", i)]],
       {
         if (input[[paste0("hide_all_", i)]]) {
-          showCols(proxy1,
-                   unname(unlist(sapply(cols$filt[cols$tab == i],
-                                        function(x) grep(x, colnames(shiny_schiz), fixed = TRUE) - 1))))
           lapply(cols$filt_clean[cols$tab == i],
                  function(j) runjs(paste0("$('#", j, "-checkbox1').prop('checked', true).trigger('change');")))
         } else {
-          hideCols(proxy1,
-                   unname(unlist(sapply(cols$filt[cols$tab == i],
-                                        function(x) grep(x, colnames(shiny_schiz), fixed = TRUE) - 1))))
           lapply(cols$filt_clean[cols$tab == i],
                  function(j) runjs(paste0("$('#", j, "-checkbox1').prop('checked', false).trigger('change');")))
         }
@@ -514,143 +490,103 @@ server <- function(input, output, session) {
   # datatables ----
   ## data table ----
   ### setup reactive data ----
-  df <- eventReactive(
-    do.call(c, lapply(
-      cols$filt_clean,
-      function(name) {
-        list(input[[name]], input[[paste0(name, "-NAs")]])
-      }
-    )),
-    {
-      data <- shiny_schiz
-      for (i in seq_len(nrow(cols))) {
-        input_value <- input[[cols$filt_clean[i]]]
-        if (!is.null(input_value)) {
-          if (is.numeric(shiny_schiz[[cols$col[i]]])) {
-            min_val <- min(shiny_schiz[[cols$col[i]]], na.rm = TRUE)
-            max_val <- max(shiny_schiz[[cols$col[i]]], na.rm = TRUE)
-            if (input_value[1] > min_val | input_value[2] < max_val) {
-              if (input[[paste0(cols$filt_clean[i], "-NAs")]]) {
-                data <- data %>%
-                  filter((!!as.symbol(cols$col[i]) >= input_value[1] & 
-                            !!as.symbol(cols$col[i]) <= input_value[2]) |
-                           is.na(!!as.symbol(cols$col[i])))
-              } else {
-                data <- data %>%
-                  filter(!!as.symbol(cols$col[i]) >= input_value[1],
-                         !!as.symbol(cols$col[i]) <= input_value[2])
-              }
+  values <- reactiveValues(data = shiny_schiz)
+
+  update_others <- TRUE
+  update_data <- function(filter_name) {
+    data <- shiny_schiz
+    for (i in seq_len(nrow(cols))) {
+      input_value <- input[[cols$filt_clean[i]]]
+      if (!is.null(input_value)) {
+        if (is.numeric(shiny_schiz[[cols$col[i]]])) {
+          min_val <- min(shiny_schiz[[cols$col[i]]], na.rm = TRUE)
+          max_val <- max(shiny_schiz[[cols$col[i]]], na.rm = TRUE)
+          if (input_value[1] > min_val | input_value[2] < max_val) {
+            if (input[[paste0(cols$filt_clean[i], "-NAs")]]) {
+              data <- data %>%
+                filter((!!as.symbol(cols$col[i]) >= input_value[1] & 
+                          !!as.symbol(cols$col[i]) <= input_value[2]) |
+                         is.na(!!as.symbol(cols$col[i])))
+            } else {
+              data <- data %>%
+                filter(!!as.symbol(cols$col[i]) >= input_value[1],
+                       !!as.symbol(cols$col[i]) <= input_value[2])
             }
-          } else {
-            data <- data %>%
-              filter(!!as.symbol(cols$col[i]) %in% input_value)
           }
+        } else {
+          data <- data %>%
+            filter(!!as.symbol(cols$col[i]) %in% input_value)
         }
       }
-      data
     }
-  )
+    values$data <- data
+  }
+  
+  lapply(unique(cols$filt_clean), function(filt) {
+    observeEvent(input[[filt]], update_data(filt),
+                 ignoreNULL = FALSE, ignoreInit = TRUE)
+  })
+  
+  lapply(unique(cols$filt_clean), function(filt) {
+    observeEvent(input[[paste0(filt, "-NAs")]], update_data(filt),
+                 ignoreNULL = FALSE, ignoreInit = TRUE)
+  })
 
   ### render table ----
-  # lots of options available: https://datatables.net/reference/option/
-  output$table1 <- DT::renderDataTable(DT::datatable(
-    {
-      data <- df()
-      # update unique species count
-      runjs(paste0("$('#species_count').html('(", length(unique(data$Species)), " unique species)')"))
-      data
-    },
-    container = tab_layout,
-    rownames = FALSE,
-    elementId = 'table1',
-    style = 'bootstrap',
-    class = 'table-bordered stripe',
-    selection = list(mode = "single", selected = NULL, target = "row", selectable = TRUE),
-    extensions = c("Buttons", "FixedColumns"),
-    options = list(
-      autoWidth = TRUE,
-      ordering = TRUE,
-      columnDefs = list(list(width = '200px', targets = "_all"),
-                        list(orderable = FALSE, targets = 4:(ncol(shiny_schiz) - 1))),
-      scrollX = TRUE,
-      scrollY = TRUE,
-      scrollCollapse = TRUE,
-      paging = FALSE,
-      dom = 'Bfrti',
-      buttons = list(
-        list(extend = "copy", text = paste(fa("clipboard"),  "Copy"),
-             exportOptions = list(columns = ":visible"),
-             className = "hint--bottom-right hint--rounded hint--info",
-             attr = list("aria-label" = "Copy the below table to the clipboard",
-                         "style" = "z-index: 10;")),
-        list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "CSV"),
-             action = JS("function ( e, dt, node, config ) {
-                                 Shiny.setInputValue('downloadCSV', true, {priority: 'event'});
-                               }"),
-             className = "hint--bottom-right hint--rounded hint--info",
-             attr = list("aria-label" = "Download a copy of the below table in CSV format",
-                         "style" = "z-index: 10;")
-        ),
-        list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "Excel"),
-             action = JS("function ( e, dt, node, config ) {
-                                 Shiny.setInputValue('downloadExcel', true, {priority: 'event'});
-                               }"),
-             className = "hint--bottom-right hint--rounded hint--info",
-             attr = list("aria-label" = "Download a copy of the below table in Excel format",
-                         "style" = "z-index: 10;")
-        ),
-        list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "Empty Excel"),
-             action = JS("function ( e, dt, node, config ) {
-                                 Shiny.setInputValue('downloadEmptyExcel', true, {priority: 'event'});
-                               }"),
-             className = "hint--bottom-right hint--rounded hint--info",
-             attr = list("aria-label" = "Download an empty copy of the below table in Excel format (only colomn headers)",
-                         "style" = "z-index: 10;")
-        ),
-        list(extend = "fixedColumns", text = "Freeze First Column",
-             className = "hint--bottom-right hint--rounded hint--info",
-             attr = list("aria-label" = "Freeze the first currently visible column",
-                         "style" = "z-index: 10;", "id" = "fixedButton")
-        )
-      ),
-      rowCallback = JS(rowCallback), # formatting NAs
-      infoCallback = JS(c(
-        "function( settings, start, end, max, total, pre ) {",
-        "  return 'Showing ' + total + ' entries';",
-        "}"
-      )), # for formatting the info below the table
-      drawCallback = JS(c("if($('#fixedButton').hasClass('active')) {",
-                          "  document.body.classList.add('fixedActive');",
-                          "} else {",
-                          "  document.body.classList.remove('fixedActive');",
-                          "}")),
-      initComplete = JS("function(settings, json) {
-                           if(!$('body').hasClass('fixedActive')) $('#fixedButton').click();
-                         }")
-    )) %>%
-      formatStyle('Genus', fontStyle = "italic") %>%
-      formatStyle('Species', fontStyle = "italic"))
-  
-  ### update columns ----
-  # update columns based on checkboxes and filters
-  observeEvent(
-    df(),
-    {
-      update_cols1()
-      # update male/female columns based on sex filter
-      if (!is.null(input$Sex)) {
-        if (! "male" %in% input$Sex) {
-          hideCols(proxy1,
-                   unlist(unname(sapply(male_names,
-                                        function(x) which(x == colnames(shiny_schiz)) - 1))))
-        }
-        if (! "female" %in% input$Sex) {
-          hideCols(proxy1,
-                   unlist(unname(sapply(female_names,
-                                        function(x) which(x == colnames(shiny_schiz)) - 1))))
-        }
-      }
-    }, ignoreInit = TRUE)
+  #### reactable ----
+  output$table1 <- renderReactable({
+    data <- values$data
+    # update unique species count
+    runjs(paste0("$('#species_count').html('(", length(unique(data$Species)), " unique species)')"))
+    runjs("$('#freeze_btn').removeClass('active');")
+    reactable(data,
+              columns = setNames(lapply(seq_len(nrow(cols)), function(i) {
+                colDef(cols$col[i],
+                       show = case_when(
+                         is.null(input$Sex) ~ TRUE,
+                         !("male" %in% input$Sex) && cols$col[i] %in% male_names ~ FALSE,
+                         !("female" %in% input$Sex) && cols$col[i] %in% female_names ~ FALSE
+                       ),
+                       #show = input[[paste0(cols$filt_clean[i], "-checkbox1")]],
+                       header = ifelse(
+                         cols$col_clean[i] %in% fig_captions$Filename,
+                         function(name) {
+                           div(
+                             div(name, style = "margin-bottom: .5em;"),
+                             tags$button("Show figure",
+                                         id = paste0(cols$col_clean[i], "-th"),
+                                         class = "btn btn-sm btn-secondary",
+                                         onclick = "event.stopPropagation();"),
+                             class = "rt-text-content"
+                           )},
+                         function(name) div(name, class = "rt-text-content")
+                       )
+                )
+              }), cols$col),
+              defaultColDef = colDef(width = 200, html = TRUE,
+                                     na = as.character(span(tags$i("NA"), style = "color: rgb(151,151,151);")),
+                                     headerStyle = "cursor: pointer;"),
+              columnGroups = lapply(unique(cols$cat[-double_row]), function(cat) {
+                  colGroup(name = cat, columns = cols$col[cols$cat == cat])
+                }),
+              sortable = TRUE,
+              showSortable = TRUE,
+              onClick = JS("function(rowInfo, column) {
+                // Send the click event to Shiny, which will be available in input$show_details
+                // Note that the row index starts at 0 in JavaScript, so we add 1
+                Shiny.setInputValue('show_details', rowInfo.index + 1, { priority: 'event' })
+              }"),
+              highlight = TRUE,
+              bordered = TRUE,
+              striped = TRUE,
+              searchable = TRUE,
+              pagination = TRUE,
+              showPageSizeOptions = TRUE,
+              defaultPageSize = 100,
+              pageSizeOptions = c(50, 100, 250, 1000),
+              elementId = "table1"
+    )
+  })
   
   ## tax. and syn. table ----
   ### setup reactive data ----
@@ -739,8 +675,8 @@ ui <- {
          #Genus option, #Genus + div, #Species option, #Species + div {
            font-style: italic;
          }
-         .dataTables_wrapper {
-           padding-right: 10px;
+         .reactable {
+           padding-right: var(--_padding);
          }
          div.col-sm-6:has(> div.form-group[style*='display: none']) {
            display: none;
@@ -748,7 +684,7 @@ ui <- {
          .dataTables_filter {
            float: right;
          }
-         #table1, #table2, .dataTables_wrapper, .main {
+         #table2, .dataTables_wrapper, .main {
            padding-right: 0px !important;
          }
          h5 {
@@ -772,6 +708,9 @@ ui <- {
          }
          .collapse-toggle {
            z-index: 12 !important;
+         }
+         .darkmode--activated .rt-tr-striped {
+           background-color: #e0e0e0 !important;
          }
          .darkmode--activated .table-striped tr.odd>* {
            background-color: #e0e0e0 !important;
@@ -824,6 +763,9 @@ ui <- {
       tags$script(src = "FileSaver.min.js"),
       tags$script(src = "tableexport.min.js"),
       tags$script(src = "https://cdn.jsdelivr.net/npm/darkmode-js@1.5.7/lib/darkmode-js.min.js"),
+      tags$script(src = "https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"),
+      tags$script(src = "https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"),
+      tags$script(src = "export_excel.js"),
     ),
     # JS for dark mode widget
     tags$script(HTML("function addDarkmodeWidget() {
@@ -846,225 +788,237 @@ ui <- {
     titlePanel('Schizomida Trait Data Base (STDB)'),
     ## panels ----
     page_navbar(theme = bs_theme(version = 5, preset="bootstrap"),
-      ### database ----
       bg = "#f7f6f4", gap = "0px", id = "navbarID", selected = "database",
+      ### reactable database ----
       nav_panel("Database", value = "database", layout_sidebar(
-            fluidRow(DT::dataTableOutput('table1'),
-                     div(
-                       div(paste0("(", length(unique(shiny_schiz$Species)), " unique species)"),
-                           id = "species_count", style = "float: left;"),
-                       div(HTML("Click a character column header for a figure of the character<br />Click a row for a species summary"),
-                           style = "float: right; margin-top: -24px; text-align: right;")
-                     ), style = "width: 100%;"),
-            #### filters ----
-            sidebar = sidebar(width = "35%",
-                              card(fluidRow(h4("Filters"),
-                                  accordion(id = "database-accordion",
-                                            multiple = FALSE,
-                                            accordion_panel(
-                                              HTML(paste0("Taxonomy and Sex ",
-                                                          "<input type='checkbox' checked id='hide_all_1'",
-                                                          "aria-label = 'show/hide this entire section of columns'",
-                                                          "class = 'hint--bottom-right hint--rounded'>")),
-                                              value = "1",
-                                              fluidRow(lapply(seq_len(cols %>% filter(tab == 1) %>% nrow()), function(i) {
-                                                column(4,
-                                                       selectInput(inputId = cols$col_clean[i],
-                                                                   label = HTML(paste0(cols$col[i],
-                                                                                       " <input type = 'checkbox' checked id = ",
-                                                                                       "'", cols$col_clean[i], "-checkbox1' ",
-                                                                                       "aria-label = 'show/hide this column'",
-                                                                                       "class = '",
-                                                                                       ifelse((i %% 3) == 0, "hint--bottom-left", "hint--bottom-right"),
-                                                                                       " hint--rounded'>")),
-                                                                   choices = sort(unique(as.character(shiny_schiz[[cols$col[i]]]))),
-                                                                   multiple = TRUE))
-                                              }))
-                                            ),
-                                            accordion_panel(
-                                              HTML(paste0("Prosoma ",
-                                                          "<input type='checkbox' checked id='hide_all_2'",
-                                                          "aria-label = 'show/hide this entire section of columns'",
-                                                          "class = 'hint--bottom-right hint--rounded'>")),
-                                              value = "2",
-                                              lapply(unique(cols$cat[cols$tab == 2]), function(cat_name) {
-                                                cols_sub <- cols %>% filter(cat == cat_name, !dupe)
-                                                list(fluidRow(column(12, h5(cat_name, id = idEscape(cat_name)))),
-                                                     fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
-                                                       if (is.numeric(shiny_schiz[[cols_sub$col[i]]])) {
-                                                         min_val <- min(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE)
-                                                         max_val <- max(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE)
-                                                         column(6, sliderInput(inputId = cols_sub$filt_clean[i],
-                                                                               label = HTML(paste0(cols_sub$filt[i],
-                                                                                                   " <input type = 'checkbox' checked id = ",
-                                                                                                   "'", cols_sub$filt_clean[i], "-checkbox1' ",
-                                                                                                   "aria-label = 'show/hide this column'",
-                                                                                                   "class = '",
-                                                                                                   ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
-                                                                                                   " hint--rounded'>",
-                                                                                                   "<br><label id='", cols_sub$filt_clean[i], "-NAs-label' ",
-                                                                                                   "for='", cols_sub$filt_clean[i], "-NAs' ",
-                                                                                                   "style='font-size: small; display: none;'>",
-                                                                                                   "Include NAs</label> ",
-                                                                                                   "<input style='display: none;' type = 'checkbox' id = '",
-                                                                                                   cols_sub$filt_clean[i], "-NAs' ",
-                                                                                                   "aria-label = 'include NA values in this column'",
-                                                                                                   "class = '",
-                                                                                                   ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
-                                                                                                   " hint--rounded'>")),
-                                                                               min = min_val,
-                                                                               max = max_val,
-                                                                               value = c(min_val, max_val),
-                                                                               step = .01))
-                                                       } else {
-                                                         column(6, selectInput(inputId = cols_sub$col_clean[i],
-                                                                               label = HTML(paste0(cols_sub$col[i],
-                                                                                                   " <input type = 'checkbox' checked id = ",
-                                                                                                   "'", cols_sub$col_clean[i], "-checkbox1' ",
-                                                                                                   "aria-label = 'show/hide this column'",
-                                                                                                   "class = '",
-                                                                                                   ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
-                                                                                                   " hint--rounded'>")),
-                                                                               choices = sort(unique(as.character(shiny_schiz[[cols_sub$col[i]]]))),
-                                                                               multiple = TRUE))
-                                                       }
-                                                     })))
-                                              })
-                                            ),
-                                            accordion_panel(
-                                              HTML(paste0("Opisthosoma ",
-                                                          "<input type='checkbox' checked id='hide_all_3'",
-                                                          "aria-label = 'show/hide this entire section of columns'",
-                                                          "class = 'hint--bottom-right hint--rounded'>")),
-                                              value = "3",
-                                              lapply(unique(cols$cat[cols$tab == 3]), function(cat_name) {
-                                                cols_sub <- cols %>% filter(cat == cat_name, !dupe)
-                                                list(fluidRow(column(12, h5(cat_name, id = idEscape(cat_name)))),
-                                                     fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
-                                                       if (is.numeric(shiny_schiz[[cols_sub$col[i]]])) {
-                                                         min_val <- min(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE)
-                                                         max_val <- max(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE)
-                                                         column(6, sliderInput(inputId = cols_sub$filt_clean[i],
-                                                                               label = HTML(paste0(cols_sub$filt[i],
-                                                                                                   " <input type = 'checkbox' checked id = ",
-                                                                                                   "'", cols_sub$filt_clean[i], "-checkbox1' ",
-                                                                                                   "aria-label = 'show/hide this column'",
-                                                                                                   "class = '",
-                                                                                                   ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
-                                                                                                   " hint--rounded'>",
-                                                                                                   "<br><label id='", cols_sub$filt_clean[i], "-NAs-label' ",
-                                                                                                   "for='", cols_sub$filt_clean[i], "-NAs' ",
-                                                                                                   "style='font-size: small; display: none;'>",
-                                                                                                   "Include NAs</label> ",
-                                                                                                   "<input style='display: none;' type = 'checkbox' id = '",
-                                                                                                   cols_sub$filt_clean[i], "-NAs' ",
-                                                                                                   "aria-label = 'include NA values in this column'",
-                                                                                                   "class = '",
-                                                                                                   ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
-                                                                                                   " hint--rounded'>")),
-                                                                               min = min_val,
-                                                                               max = max_val,
-                                                                               value = c(min_val, max_val),
-                                                                               step = .01))
-                                                       } else {
-                                                         column(6, selectInput(inputId = cols_sub$col_clean[i],
-                                                                               label = HTML(paste0(cols_sub$col[i],
-                                                                                                   " <input type = 'checkbox' checked id = ",
-                                                                                                   "'", cols_sub$col_clean[i], "-checkbox1' ",
-                                                                                                   "aria-label = 'show/hide this column'",
-                                                                                                   "class = '",
-                                                                                                   ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
-                                                                                                   " hint--rounded'>")),
-                                                                               choices = sort(unique(as.character(shiny_schiz[[cols_sub$col[i]]]))),
-                                                                               multiple = TRUE))
-                                                       }
-                                                     })))
-                                              })
-                                            ),
-                                            accordion_panel(
-                                              HTML(paste0("Legs and Size ",
-                                                          "<input type='checkbox' checked id='hide_all_4'",
-                                                          "aria-label = 'show/hide this entire section of columns'",
-                                                          "class = 'hint--bottom-right hint--rounded'>")),
-                                              value = "4",
-                                              lapply(unique(cols$cat[cols$tab == 4]), function(cat_name) {
-                                                cols_sub <- cols %>% filter(cat == cat_name, !dupe)
-                                                list(fluidRow(column(12, h5(cat_name, id = idEscape(cat_name)))),
-                                                     fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
-                                                       if (is.numeric(shiny_schiz[[cols_sub$col[i]]])) {
-                                                         min_val <- min(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE)
-                                                         max_val <- max(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE)
-                                                         column(6, sliderInput(inputId = cols_sub$filt_clean[i],
-                                                                               label = HTML(paste0(cols_sub$filt[i],
-                                                                                                   " <input type = 'checkbox' checked id = ",
-                                                                                                   "'", cols_sub$filt_clean[i], "-checkbox1' ",
-                                                                                                   "aria-label = 'show/hide this column'",
-                                                                                                   "class = '",
-                                                                                                   ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
-                                                                                                   " hint--rounded'>",
-                                                                                                   "<br><label id='", cols_sub$filt_clean[i], "-NAs-label' ",
-                                                                                                   "for='", cols_sub$filt_clean[i], "-NAs' ",
-                                                                                                   "style='font-size: small; display: none;'>",
-                                                                                                   "Include NAs</label> ",
-                                                                                                   "<input style='display: none;' type = 'checkbox' id = '",
-                                                                                                   cols_sub$filt_clean[i], "-NAs' ",
-                                                                                                   "aria-label = 'include NA values in this column'",
-                                                                                                   "class = '",
-                                                                                                   ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
-                                                                                                   " hint--rounded'>")),
-                                                                               min = min_val,
-                                                                               max = max_val,
-                                                                               value = c(min_val, max_val),
-                                                                               step = .01))
-                                                       } else {
-                                                         column(6, selectInput(inputId = cols_sub$col_clean[i],
-                                                                               label = HTML(paste0(cols_sub$col[i],
-                                                                                                   " <input type = 'checkbox' checked id = ",
-                                                                                                   "'", cols_sub$col_clean[i], "-checkbox1' ",
-                                                                                                   "aria-label = 'show/hide this column'",
-                                                                                                   "class = '",
-                                                                                                   ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
-                                                                                                   " hint--rounded'>")),
-                                                                               choices = sort(unique(as.character(shiny_schiz[[cols_sub$col[i]]]))),
-                                                                               multiple = TRUE))
-                                                       }
-                                                     })))
-                                              })
-                                            ),
-                                            accordion_panel(
-                                              HTML(paste0("Ecology and Locality ",
-                                                          "<input type='checkbox' checked id='hide_all_5'",
-                                                          "aria-label = 'show/hide this entire section of columns'",
-                                                          "class = 'hint--bottom-right hint--rounded'>")),
-                                              value = "5",
-                                              lapply(unique(cols$cat[cols$tab == 5]), function(cat_name) {
-                                                cols_sub <- cols %>% filter(cat == cat_name)
-                                                list(fluidRow(column(12, h5(cat_name, id = idEscape(cat_name)))),
-                                                     fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
-                                                       column(6,
-                                                              selectInput(inputId = cols_sub$col_clean[i],
-                                                                          label = HTML(paste0(cols_sub$col[i],
-                                                                                              " <input type = 'checkbox' checked id = ",
-                                                                                              "'", cols_sub$col_clean[i], "-checkbox1' ",
-                                                                                              "aria-label = 'show/hide this column'",
-                                                                                              "class = '",
-                                                                                              ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
-                                                                                              " hint--rounded'>")),
-                                                                          choices = sort(unique(as.character(shiny_schiz[[cols_sub$col[i]]]))),
-                                                                          multiple = TRUE))
-                                                     })))
-                                              })
-                                            )
-                                  )
-            )),
-            #### reset button ----
-            div(style="text-align: center; padding-bottom: var(--bslib-sidebar-padding);",
-                add_prompt(actionButton("reset_input1", HTML(paste(fa("rotate", prefer_type = "solid"), "Reset all filters")), width = "50%"),
-                           message = "Reset the table to its original form",
-                           position = "top", rounded = TRUE)),
-            id = "side-panel1"
-            )
-          )),
+        div(div(tags$button(HTML(paste(fa("download", prefer_type = "solid"), "Download Data")),
+                        class = "btn btn-default dropdown-toggle",
+                        type = "button", "data-bs-toggle" = "dropdown", "aria-haspopup" = "true",
+                        "aria-expanded" = "false"),
+            tags$ul(
+              tags$li(tags$button(HTML(paste(fa("clipboard"), "Copy to Clipboard")),
+                                              class="btn btn-default dropdown-item",
+                                  onclick = JS("var tmp = $('.rt-tr-header .rt-th').map(function() {
+                                                            return this.getAttribute('aria-label').replace('Sort ', '');
+                                                          }).toArray()
+                                                navigator.clipboard.writeText(Reactable.getDataCSV('table1', {columnIds: tmp, sep: '\t'}));
+                                                alert('Copied the table to the clipboard');")) %>%
+                        tooltip("Copy the below table to the clipboard")),
+              tags$li(tags$button(HTML(paste(fa("file-csv", prefer_type = "solid"), "Download CSV")),
+                                  onclick = JS("var tmp = $('.rt-tr-header .rt-th').map(function() {
+                                                            return this.getAttribute('aria-label').replace('Sort ', '');
+                                                          }).toArray()
+                                                Reactable.downloadDataCSV('table1', 'STDB.csv', {columnIds: tmp})"),
+                                  class="btn btn-default dropdown-item") %>%
+                        tooltip("Download a copy of the below table in CSV format")),
+              tags$li(tags$button(HTML(paste(fa("file-excel", prefer_type = "solid"), "Download Excel")),
+                                  onclick = JS("exportExcel('table1', 'STDB.xlsx')"),
+                                  class="btn btn-default dropdown-item") %>%
+                        tooltip("Download an empty copy of the below table in Excel format")),
+              tags$li(tags$button(HTML(paste(fa("file-excel"), "Download Empty Excel")),
+                                  onclick = JS("exportExcel('table1', 'STDB_empty.xlsx', true)"),
+                                  class="btn btn-default dropdown-item") %>%
+                        tooltip("Download an empty copy of the below table in Excel format (only colomn headers)")),
+              class="dropdown-menu"),
+            class = "btn-group", role="group"),
+            tags$button("Freeze First Column", id = "freeze_btn", class = "btn btn-default",
+                        onclick = JS("
+                        var sticky = $('.rt-sticky').length > 0;
+                        if (sticky) {
+                          $('.rt-sticky').css({'position': 'relative', 'left': 'unset'}).removeClass('rt-sticky');
+                          $('.rt-tr-striped-sticky').addClass('rt-tr-striped').removeClass('rt-tr-striped-sticky');
+                          $('.rt-tr-highlight-sticky').addClass('rt-tr-highlight').removeClass('rt-tr-highlight-sticky');
+                          $('#freeze_btn').removeClass('active');
+                        } else {
+                          $('.rt-tr:not(.rt-tr-group-header').find('div:first').css({'position': 'sticky', 'left': '0px'}).addClass('rt-sticky');
+                          $('.rt-tr-striped').removeClass('rt-tr-striped').addClass('rt-tr-striped-sticky');
+                          $('.rt-tr-highlight').removeClass('rt-tr-highlight').addClass('rt-tr-highlight-sticky');
+                          $('#freeze_btn').addClass('active');
+                        }")) %>%
+              tooltip("Freeze the first currently visible column", class = "btn btn-default", style = "padding: 0;"),
+            class = "btn-group", role="group",
+            style = "position: absolute; top: var(--bslib-mb-space); z-index: 10;"),
+        reactableOutput("table1"),
+        div(
+          div(paste0("(", length(unique(shiny_schiz$Species)), " unique species)"),
+              id = "species_count", style = "margin-right: auto;"),
+          div("Click a row for a species summary",
+              style = "margin-right: var(--bslib-mb-spacer); text-align: right;"),
+          style = "display: flex; margin-top: calc(-1 * var(--bslib-mb-spacer));"
+          ),
+        #### filters ----
+        sidebar = sidebar(width = "35%",
+                          card(fluidRow(h4("Filters"),
+                                        accordion(id = "database-accordion",
+                                                  multiple = FALSE,
+                                                  accordion_panel(
+                                                    HTML(paste0("Taxonomy and Sex ",
+                                                                span(HTML("<input type='checkbox' checked id='hide_all_1' ",
+                                                                          "data-bs-toggle='collapse' data-bs-target>")) %>%
+                                                                  tooltip("show/hide this entire section of columns"))),
+                                                    value = "1",
+                                                    fluidRow(lapply(seq_len(cols %>% filter(tab == 1) %>% nrow()), function(i) {
+                                                      column(4,
+                                                             selectizeInput(inputId = cols$col_clean[i],
+                                                                         label = HTML(paste0(cols$col[i],
+                                                                                             " <input type = 'checkbox' checked id = ",
+                                                                                             "'", cols$col_clean[i], "-checkbox1'>")) %>%
+                                                                           tooltip("show/hide this column"),
+                                                                         choices = sort(unique(as.character(shiny_schiz[[cols$col[i]]]))),
+                                                                         multiple = TRUE))
+                                                    }))
+                                                  ),
+                                                  accordion_panel(
+                                                    HTML(paste0("Prosoma ",
+                                                                span(HTML("<input type='checkbox' checked id='hide_all_2' ",
+                                                                          "data-bs-toggle='collapse' data-bs-target>")) %>%
+                                                                  tooltip("show/hide this entire section of columns"))),
+                                                    value = "2",
+                                                    lapply(unique(cols$cat[cols$tab == 2]), function(cat_name) {
+                                                      cols_sub <- cols %>% filter(cat == cat_name, !dupe)
+                                                      list(fluidRow(column(12, h5(cat_name, id = idEscape(cat_name)))),
+                                                           fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
+                                                             if (is.numeric(shiny_schiz[[cols_sub$col[i]]])) {
+                                                               min_val <- min(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE)
+                                                               max_val <- max(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE)
+                                                               column(6, sliderInput(inputId = cols_sub$filt_clean[i],
+                                                                                     label = HTML(paste(cols_sub$filt[i], tooltip(HTML(paste0("<input type = 'checkbox' checked id = ",
+                                                                                                                          "'", cols_sub$filt_clean[i], "-checkbox1'>")), "show/hide this column"),
+                                                                                                         HTML(paste0("<br><label id='", cols_sub$filt_clean[i], "-NAs-label' ",
+                                                                                                         "for='", cols_sub$filt_clean[i], "-NAs' ",
+                                                                                                         "style='font-size: small; display: none;'>",
+                                                                                                         "Include NAs</label> ",
+                                                                                                         "<input style='display: none;' type = 'checkbox' id = '",
+                                                                                                         cols_sub$filt_clean[i], "-NAs'>")) %>% tooltip("include NA values in this column"))),
+                                                                                     min = min_val,
+                                                                                     max = max_val,
+                                                                                     value = c(min_val, max_val),
+                                                                                     step = .01))
+                                                             } else {
+                                                               column(6, selectizeInput(inputId = cols_sub$col_clean[i],
+                                                                                     label = HTML(paste0(cols_sub$col[i],
+                                                                                                         " <input type = 'checkbox' checked id = ",
+                                                                                                         "'", cols_sub$col_clean[i], "-checkbox1'>")) %>%
+                                                                                       tooltip("show/hide this column"),
+                                                                                     choices = sort(unique(as.character(shiny_schiz[[cols_sub$col[i]]]))),
+                                                                                     multiple = TRUE))
+                                                             }
+                                                           })))
+                                                    })
+                                                  ),
+                                                  accordion_panel(
+                                                    HTML(paste0("Opisthosoma ",
+                                                                span(HTML("<input type='checkbox' checked id='hide_all_3' ",
+                                                                          "data-bs-toggle='collapse' data-bs-target>")) %>%
+                                                                  tooltip("show/hide this entire section of columns"))),
+                                                    value = "3",
+                                                    lapply(unique(cols$cat[cols$tab == 3]), function(cat_name) {
+                                                      cols_sub <- cols %>% filter(cat == cat_name, !dupe)
+                                                      list(fluidRow(column(12, h5(cat_name, id = idEscape(cat_name)))),
+                                                           fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
+                                                             if (is.numeric(shiny_schiz[[cols_sub$col[i]]])) {
+                                                               min_val <- min(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE)
+                                                               max_val <- max(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE)
+                                                               column(6, sliderInput(inputId = cols_sub$filt_clean[i],
+                                                                                     label = HTML(paste0(cols_sub$filt[i], " ",
+                                                                                                         HTML(paste0("<input type = 'checkbox' checked id = ",
+                                                                                                         "'", cols_sub$filt_clean[i], "-checkbox1'>")) %>%
+                                                                                                           tooltip("show/hide this column"),
+                                                                                                         "<br><label id='", cols_sub$filt_clean[i], "-NAs-label' ",
+                                                                                                         "for='", cols_sub$filt_clean[i], "-NAs' ",
+                                                                                                         "style='font-size: small; display: none;'>",
+                                                                                                         "Include NAs</label> ",
+                                                                                                         "<input style='display: none;' type = 'checkbox' id = '",
+                                                                                                         cols_sub$filt_clean[i], "-NAs'>")),
+                                                                                     min = min_val,
+                                                                                     max = max_val,
+                                                                                     value = c(min_val, max_val),
+                                                                                     step = .01))
+                                                             } else {
+                                                               column(6, selectizeInput(inputId = cols_sub$col_clean[i],
+                                                                                     label = HTML(paste0(cols_sub$col[i],
+                                                                                                         " <input type = 'checkbox' checked id = ",
+                                                                                                         "'", cols_sub$col_clean[i], "-checkbox1'>")) %>%
+                                                                                       tooltip("show/hide this column"),
+                                                                                     choices = sort(unique(as.character(shiny_schiz[[cols_sub$col[i]]]))),
+                                                                                     multiple = TRUE))
+                                                             }
+                                                           })))
+                                                    })
+                                                  ),
+                                                  accordion_panel(
+                                                    HTML(paste0("Legs and Size ",
+                                                                span(HTML("<input type='checkbox' checked id='hide_all_4' ",
+                                                                          "data-bs-toggle='collapse' data-bs-target>")) %>%
+                                                                  tooltip("show/hide this entire section of columns"))),
+                                                    value = "4",
+                                                    lapply(unique(cols$cat[cols$tab == 4]), function(cat_name) {
+                                                      cols_sub <- cols %>% filter(cat == cat_name, !dupe)
+                                                      list(fluidRow(column(12, h5(cat_name, id = idEscape(cat_name)))),
+                                                           fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
+                                                             if (is.numeric(shiny_schiz[[cols_sub$col[i]]])) {
+                                                               min_val <- min(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE)
+                                                               max_val <- max(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE)
+                                                               column(6, sliderInput(inputId = cols_sub$filt_clean[i],
+                                                                                     label = HTML(paste0(cols_sub$filt[i], " ",
+                                                                                                         HTML(paste0("<input type = 'checkbox' checked id = ",
+                                                                                                         "'", cols_sub$filt_clean[i], "-checkbox1'>")) %>%
+                                                                                                           tooltip("show/hide this column"),
+                                                                                                         "<br><label id='", cols_sub$filt_clean[i], "-NAs-label' ",
+                                                                                                         "for='", cols_sub$filt_clean[i], "-NAs' ",
+                                                                                                         "style='font-size: small; display: none;'>",
+                                                                                                         "Include NAs</label> ",
+                                                                                                         HTML(paste0("<input style='display: none;' type = 'checkbox' id = '",
+                                                                                                         cols_sub$filt_clean[i], "-NAs'>")) %>%
+                                                                                                           tooltip("include NA values in this column"))),
+                                                                                     min = min_val,
+                                                                                     max = max_val,
+                                                                                     value = c(min_val, max_val),
+                                                                                     step = .01))
+                                                             } else {
+                                                               column(6, selectizeInput(inputId = cols_sub$col_clean[i],
+                                                                                     label = HTML(paste0(cols_sub$col[i],
+                                                                                                         " <input type = 'checkbox' checked id = ",
+                                                                                                         "'", cols_sub$col_clean[i], "-checkbox1'>")) %>%
+                                                                                       tooltip("show/hide this column"),
+                                                                                     choices = sort(unique(as.character(shiny_schiz[[cols_sub$col[i]]]))),
+                                                                                     multiple = TRUE))
+                                                             }
+                                                           })))
+                                                    })
+                                                  ),
+                                                  accordion_panel(
+                                                    HTML(paste0("Ecology and Locality ",
+                                                                span(HTML("<input type='checkbox' checked id='hide_all_5' ",
+                                                                          "data-bs-toggle='collapse' data-bs-target>")) %>%
+                                                                  tooltip("show/hide this entire section of columns"))),
+                                                    value = "5",
+                                                    lapply(unique(cols$cat[cols$tab == 5]), function(cat_name) {
+                                                      cols_sub <- cols %>% filter(cat == cat_name)
+                                                      list(fluidRow(column(12, h5(cat_name, id = idEscape(cat_name)))),
+                                                           fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
+                                                             column(6,
+                                                                    selectizeInput(inputId = cols_sub$col_clean[i],
+                                                                                label = HTML(paste0(cols_sub$col[i],
+                                                                                                    " <input type = 'checkbox' checked id = ",
+                                                                                                    "'", cols_sub$col_clean[i], "-checkbox1'>")) %>%
+                                                                                  tooltip("show/hide this column"),
+                                                                                choices = sort(unique(as.character(shiny_schiz[[cols_sub$col[i]]]))),
+                                                                                multiple = TRUE))
+                                                           })))
+                                                    })
+                                                  )
+                                        )
+                          )),
+                          #### reset button ----
+                          div(style="text-align: center; padding-bottom: var(--bslib-mb-spacer)",
+                              add_prompt(actionButton("reset_input1", HTML(paste(fa("rotate", prefer_type = "solid"), "Reset all filters")), width = "50%"),
+                                         message = "Reset the table to its original form",
+                                         position = "top", rounded = TRUE)),
+                          id = "side-panel1"
+        )
+      )
+      ),
       ### species hist. ----
       nav_panel("Species Description History", value = "history", layout_sidebar(
             fluidRow(DT::dataTableOutput('table2'), style = "width: 100%;"),
