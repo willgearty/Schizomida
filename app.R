@@ -10,11 +10,9 @@
 library(shiny)
 library(shinyjs)
 library(dplyr)
-library(DT)
 library(janitor)
 library(htmltools)
 library(fontawesome)
-library(prompter)
 library(bslib)
 library(reactable)
 
@@ -100,55 +98,8 @@ female_names <- Reduce(union,
                          grep("(female", cols$cat, fixed = TRUE, value = TRUE)
                        ))
 
-# table layout and formatting ----
-# generate table layout
-ref_col <- grep("References", cols$cat)
-double_row <- which(cols$cat == cols$col)
-col_width <- table(cols$cat)[unique(cols$cat[-double_row])]
-tab_layout <- withTags(table(
-  class = 'display',
-  thead(
-    tr(
-      lapply(cols$cat[double_row[double_row != ref_col]], function(cat) {
-        args <- list(cat, rowspan = 2)
-        if(cat == "Sex") {
-          args$id <- paste0(cat, "-th")
-          args$style <- "cursor: pointer;"
-        }
-        do.call(th, args)
-      }),
-      lapply(seq_along(col_width), function(i) {
-        th(names(col_width)[i], colspan = col_width[i], style = "text-align: center;")
-      }),
-      th(cols$cat[ref_col], rowspan = 2)
-    ),
-    tr(
-      lapply((1:nrow(cols))[-double_row], function(i) {
-        th(cols$col[i], id = paste0(cols$col_clean[i], "-th"),
-           style = ifelse(i %in% which(cols$col_clean %in% fig_cols),
-                          "cursor: pointer;", ""))
-      })
-    )
-  )
-))
-
-# for formatting NAs
-# based on https://stackoverflow.com/a/58526580/4660582
-rowCallback <- c(
-  "function(row, data){",
-  "  $(row).find('td').each(function (index, td) {",
-  "    var $td = $(td);",
-  "    if ($td.html() == '') {",
-  "      $td.html('NA').css({'color': 'rgb(151,151,151)', 'font-style': 'italic'})",
-  "    }",
-  "  })",
-  "}"
-)
-
 # server.R ----
 server <- function(input, output, session) {
-  proxy2 <- dataTableProxy('table2')
-  
   # observers ----
   ## navigation and sub-urls ----
   ## modified from https://github.com/kiegan/wait-thats-shiny
@@ -283,40 +234,16 @@ server <- function(input, output, session) {
   })
 
   ### table 2 ----
-  # update all table2 columns based on checkboxes
-  checkbox2_rows <- which(cols$cat %in% c("Family", "Subfamily", "Genus", "Species", "Distribution"))
-  update_cols2 <- function() {
-    # hide columns in table2
-    show_cols <- c()
-    hide_cols <- c()
-    for (i in checkbox2_rows) {
-      if (input[[paste0(cols$filt_clean[i], "-checkbox2")]]) {
-        show_cols <- c(show_cols, cols$filt[i])
-      } else {
-        hide_cols <- c(hide_cols, cols$filt[i])
-      }
-    }
-    if (length(show_cols > 0)) {
-      showCols(proxy2,
-               unname(sapply(show_cols,
-                             function(x) which(x == colnames(taxonomy_syn)) - 1)))
-    }
-    if (length(hide_cols > 0)) {
-      hideCols(proxy2,
-               unname(sapply(hide_cols,
-                             function(x) which(x == colnames(taxonomy_syn)) - 1)))
-    }
-  }
-
   # monitor checkboxes for table2
-  lapply(checkbox2_rows, function(i) {
-    observeEvent(input[[paste0(cols$filt_clean[i], "-checkbox2")]],
-                 if (input[[paste0(cols$filt_clean[i], "-checkbox2")]]) {
-                   showCols(proxy2, which(cols$filt[i] == colnames(taxonomy_syn)) - 1)
-                 } else {
-                   hideCols(proxy2, which(cols$filt[i] == colnames(taxonomy_syn)) - 1)
-                 },
-                 ignoreInit = TRUE
+  lapply(which(cols$cat %in% c("Family", "Subfamily", "Genus", "Species", "Distribution")), function(i) {
+    observeEvent(
+      input[[paste0(cols$filt_clean[i], "-checkbox2")]],
+      if (input[[paste0(cols$filt_clean[i], "-checkbox2")]]) {
+        runjs(paste0("Reactable.toggleHideColumn('table2', '", cols$col[i],"', false);"))
+      } else {
+        runjs(paste0("Reactable.toggleHideColumn('table2', '", cols$col[i],"', true);"))
+      },
+      ignoreInit = TRUE
     )
   })
   
@@ -446,10 +373,10 @@ server <- function(input, output, session) {
   }, ignoreNULL = FALSE, ignoreInit = TRUE)
   
   ### table 2 ----
-  observeEvent(list(input$Family2), {
+  observeEvent(input$Family2, {
     dat <- taxonomy_syn
     if (!is.null(input$Family2)) dat <- dat %>% filter(Family %in% input$Family2)
-    choices <- sort(unique(as.character(taxonomy_syn$Subfamily)))
+    choices <- sort(unique(as.character(dat$Subfamily)))
     updateSelectizeInput(inputId = "Subfamily2", choices = choices, server = TRUE)
   }, ignoreNULL = FALSE, ignoreInit = TRUE)
   
@@ -487,13 +414,12 @@ server <- function(input, output, session) {
     }
   }, ignoreNULL = FALSE, ignoreInit = TRUE)
   
-  # datatables ----
+  # reactables ----
   ## data table ----
   ### setup reactive data ----
-  values <- reactiveValues(data = shiny_schiz)
+  values <- reactiveValues(data = shiny_schiz, data2 = taxonomy_syn)
 
-  update_others <- TRUE
-  update_data <- function(filter_name) {
+  update_data <- function() {
     data <- shiny_schiz
     for (i in seq_len(nrow(cols))) {
       input_value <- input[[cols$filt_clean[i]]]
@@ -523,17 +449,16 @@ server <- function(input, output, session) {
   }
   
   lapply(unique(cols$filt_clean), function(filt) {
-    observeEvent(input[[filt]], update_data(filt),
+    observeEvent(input[[filt]], update_data(),
                  ignoreNULL = FALSE, ignoreInit = TRUE)
   })
   
   lapply(unique(cols$filt_clean), function(filt) {
-    observeEvent(input[[paste0(filt, "-NAs")]], update_data(filt),
+    observeEvent(input[[paste0(filt, "-NAs")]], update_data(),
                  ignoreNULL = FALSE, ignoreInit = TRUE)
   })
 
   ### render table ----
-  #### reactable ----
   output$table1 <- renderReactable({
     data <- values$data
     # update unique species count
@@ -547,7 +472,6 @@ server <- function(input, output, session) {
                          !("male" %in% input$Sex) && cols$col[i] %in% male_names ~ FALSE,
                          !("female" %in% input$Sex) && cols$col[i] %in% female_names ~ FALSE
                        ),
-                       #show = input[[paste0(cols$filt_clean[i], "-checkbox1")]],
                        header = ifelse(
                          cols$col_clean[i] %in% fig_captions$Filename,
                          function(name) {
@@ -566,7 +490,7 @@ server <- function(input, output, session) {
               defaultColDef = colDef(width = 200, html = TRUE,
                                      na = as.character(span(tags$i("NA"), style = "color: rgb(151,151,151);")),
                                      headerStyle = "cursor: pointer;"),
-              columnGroups = lapply(unique(cols$cat[-double_row]), function(cat) {
+              columnGroups = lapply(unique(cols$cat[-which(cols$cat == cols$col)]), function(cat) {
                   colGroup(name = cat, columns = cols$col[cols$cat == cat])
                 }),
               sortable = TRUE,
@@ -583,79 +507,51 @@ server <- function(input, output, session) {
               pagination = TRUE,
               showPageSizeOptions = TRUE,
               defaultPageSize = 100,
-              pageSizeOptions = c(50, 100, 250, 1000),
-              elementId = "table1"
+              pageSizeOptions = c(50, 100, 250, 1000)
     )
   })
   
   ## tax. and syn. table ----
   ### setup reactive data ----
   df2_cols <- which(cols$cat %in% c("Family", "Subfamily", "Genus", "Species", "Distribution"))
-  df2 <- eventReactive(
-    lapply(
-      cols$filt_clean[df2_cols],
-      function(name) {
-        input[[paste0(name, "2")]]
+  update_data2 <- function() {
+    data2 <- taxonomy_syn
+    for (col in df2_cols) {
+      input_value <- input[[paste0(cols$filt_clean[col], "2")]]
+      if (!is.null(input_value)) {
+        data2 <- data2 %>%
+          filter(!!as.symbol(cols$col[col]) %in% input_value)
       }
-    ),
-    {
-      data2 <- taxonomy_syn
-      for (col in df2_cols) {
-        input_value <- input[[paste0(cols$filt_clean[col], "2")]]
-        if (!is.null(input_value)) {
-          data2 <- data2 %>%
-            filter(!!as.symbol(cols$col[col]) %in% input_value)
-        }
-      }
-      data2
-    })
+    }
+    values$data2 <- data2
+  }
+  
+  lapply(unique(cols$filt_clean[df2_cols]), function(filt) {
+    observeEvent(input[[paste0(filt, "2")]], update_data2(),
+                 ignoreNULL = FALSE, ignoreInit = TRUE)
+  })
 
   ### render table ----
-  # lots of options available: https://datatables.net/reference/option/
-  output$table2 <- DT::renderDataTable(DT::datatable(
-    df2(),
-    elementId = 'table2',
-    rownames = FALSE,
-    style = 'bootstrap',
-    class = 'table-bordered stripe',
-    selection = 'none',
-    extensions = 'Buttons',
-    options = list(
-      scrollX = TRUE,
-      scrollY = TRUE,
-      scrollCollapse = TRUE,
-      paging = FALSE,
-      dom = 'Bfrti',
-      buttons = list(
-        list(extend = "copy", text = paste(fa("clipboard"),  "Copy"),
-             exportOptions = list(columns = ":visible"),
-             className = "hint--bottom-right hint--rounded hint--info",
-             attr = list("aria-label" = "Copy the below table to the clipboard")),
-        list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "CSV"),
-             action = JS("function ( e, dt, node, config ) {
-                                 Shiny.setInputValue('downloadCSV', true, {priority: 'event'});
-                               }"),
-             className = "hint--bottom-right hint--rounded hint--info",
-             attr = list("aria-label" = "Download a copy of the below table in CSV format")
-        ),
-        list(extend = "collection", text = paste(fa("download", prefer_type = "solid"), "Excel"),
-             action = JS("function ( e, dt, node, config ) {
-                                 Shiny.setInputValue('downloadExcel', true, {priority: 'event'});
-                               }"),
-             className = "hint--bottom-right hint--rounded hint--info",
-             attr = list("aria-label" = "Download a copy of the below table in Excel format")
-        )
-      ),
-      rowCallback = JS(rowCallback), # formatting NAs
-      infoCallback = JS(c(
-        "function( settings, start, end, max, total, pre ) {",
-        "  return 'Showing ' + total + ' species';",
-        "}"
-      )) # for formatting the info below the table
-    )))
-  ### update columns ----
-  # update columns based on checkboxes
-  observeEvent(df2(), update_cols2())
+  output$table2 <- renderReactable({
+    data2 <- values$data2
+    # update unique species count
+    runjs(paste0("$('#species_count2').html('Showing ", length(unique(data2$Species)), " species')"))
+    reactable(data2,
+              defaultColDef = colDef(width = 200, html = TRUE,
+                                     na = as.character(span(tags$i("NA"), style = "color: rgb(151,151,151);")),
+                                     headerStyle = "cursor: pointer;"),
+              sortable = TRUE,
+              showSortable = TRUE,
+              highlight = TRUE,
+              bordered = TRUE,
+              striped = TRUE,
+              searchable = TRUE,
+              pagination = TRUE,
+              showPageSizeOptions = TRUE,
+              defaultPageSize = 100,
+              pageSizeOptions = c(50, 100, 250, 1000)
+    )
+  })
 }
 
 # ui.R ----
@@ -664,7 +560,6 @@ ui <- {
     theme = bs_theme(version = 5, preset="bootstrap"),
     fillable_mobile = TRUE,
     useShinyjs(),
-    use_prompt(),
     ## head ----
     tags$head(
       tags$style(
@@ -681,21 +576,11 @@ ui <- {
          div.col-sm-6:has(> div.form-group[style*='display: none']) {
            display: none;
          }
-         .dataTables_filter {
-           float: right;
-         }
-         #table2, .dataTables_wrapper, .main {
+         .main {
            padding-right: 0px !important;
          }
          h5 {
            font-style: italic;
-         }
-         .dataTables_scrollBody {
-           max-height: 60vh;
-           max-height: 60dvh;
-         }
-         .tableexport-caption {
-           display: none;
          }
          .sidebar-content .card-body {
            height: 80vh !important;
@@ -710,9 +595,6 @@ ui <- {
            z-index: 12 !important;
          }
          .darkmode--activated .rt-tr-striped {
-           background-color: #e0e0e0 !important;
-         }
-         .darkmode--activated .table-striped tr.odd>* {
            background-color: #e0e0e0 !important;
          }
          .darkmode-layer, .darkmode-toggle {
@@ -759,9 +641,6 @@ ui <- {
          "
         ),
       ),
-      tags$script(src = "xlsx.core.min.js"),
-      tags$script(src = "FileSaver.min.js"),
-      tags$script(src = "tableexport.min.js"),
       tags$script(src = "https://cdn.jsdelivr.net/npm/darkmode-js@1.5.7/lib/darkmode-js.min.js"),
       tags$script(src = "https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"),
       tags$script(src = "https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"),
@@ -789,7 +668,7 @@ ui <- {
     ## panels ----
     page_navbar(theme = bs_theme(version = 5, preset="bootstrap"),
       bg = "#f7f6f4", gap = "0px", id = "navbarID", selected = "database",
-      ### reactable database ----
+      ### database ----
       nav_panel("Database", value = "database", layout_sidebar(
         div(div(tags$button(HTML(paste(fa("download", prefer_type = "solid"), "Download Data")),
                         class = "btn btn-default dropdown-toggle",
@@ -859,7 +738,7 @@ ui <- {
                                                     value = "1",
                                                     fluidRow(lapply(seq_len(cols %>% filter(tab == 1) %>% nrow()), function(i) {
                                                       column(4,
-                                                             selectizeInput(inputId = cols$col_clean[i],
+                                                             selectInput(inputId = cols$col_clean[i],
                                                                          label = HTML(paste0(cols$col[i],
                                                                                              " <input type = 'checkbox' checked id = ",
                                                                                              "'", cols$col_clean[i], "-checkbox1'>")) %>%
@@ -895,7 +774,7 @@ ui <- {
                                                                                      value = c(min_val, max_val),
                                                                                      step = .01))
                                                              } else {
-                                                               column(6, selectizeInput(inputId = cols_sub$col_clean[i],
+                                                               column(6, selectInput(inputId = cols_sub$col_clean[i],
                                                                                      label = HTML(paste0(cols_sub$col[i],
                                                                                                          " <input type = 'checkbox' checked id = ",
                                                                                                          "'", cols_sub$col_clean[i], "-checkbox1'>")) %>%
@@ -935,7 +814,7 @@ ui <- {
                                                                                      value = c(min_val, max_val),
                                                                                      step = .01))
                                                              } else {
-                                                               column(6, selectizeInput(inputId = cols_sub$col_clean[i],
+                                                               column(6, selectInput(inputId = cols_sub$col_clean[i],
                                                                                      label = HTML(paste0(cols_sub$col[i],
                                                                                                          " <input type = 'checkbox' checked id = ",
                                                                                                          "'", cols_sub$col_clean[i], "-checkbox1'>")) %>%
@@ -976,7 +855,7 @@ ui <- {
                                                                                      value = c(min_val, max_val),
                                                                                      step = .01))
                                                              } else {
-                                                               column(6, selectizeInput(inputId = cols_sub$col_clean[i],
+                                                               column(6, selectInput(inputId = cols_sub$col_clean[i],
                                                                                      label = HTML(paste0(cols_sub$col[i],
                                                                                                          " <input type = 'checkbox' checked id = ",
                                                                                                          "'", cols_sub$col_clean[i], "-checkbox1'>")) %>%
@@ -998,7 +877,7 @@ ui <- {
                                                       list(fluidRow(column(12, h5(cat_name, id = idEscape(cat_name)))),
                                                            fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
                                                              column(6,
-                                                                    selectizeInput(inputId = cols_sub$col_clean[i],
+                                                                    selectInput(inputId = cols_sub$col_clean[i],
                                                                                 label = HTML(paste0(cols_sub$col[i],
                                                                                                     " <input type = 'checkbox' checked id = ",
                                                                                                     "'", cols_sub$col_clean[i], "-checkbox1'>")) %>%
@@ -1012,66 +891,90 @@ ui <- {
                           )),
                           #### reset button ----
                           div(style="text-align: center; padding-bottom: var(--bslib-mb-spacer)",
-                              add_prompt(actionButton("reset_input1", HTML(paste(fa("rotate", prefer_type = "solid"), "Reset all filters")), width = "50%"),
-                                         message = "Reset the table to its original form",
-                                         position = "top", rounded = TRUE)),
+                              actionButton("reset_input1", HTML(paste(fa("rotate", prefer_type = "solid"), "Reset all filters")), width = "50%") %>%
+                                tooltip("Reset the table to its original form")),
                           id = "side-panel1"
         )
       )
       ),
       ### species hist. ----
       nav_panel("Species Description History", value = "history", layout_sidebar(
-            fluidRow(DT::dataTableOutput('table2'), style = "width: 100%;"),
-            #### filters ----
-            sidebar = sidebar(width = "35%",
-                              card(fluidRow(h4("Filters"),
-                                            accordion(multiple = FALSE,
-                                                      accordion_panel(
-                                                        "Taxonomy",
-                                                        fluidRow(lapply(seq_len(cols %>% filter(tab == 1, cat != "Sex") %>% nrow()), function(i) {
-                                                          column(4,
-                                                                 selectInput(inputId = paste0(cols$col_clean[i], "2"),
-                                                                             label = HTML(paste0(cols$col[i],
-                                                                                                 " <input type = 'checkbox' checked id = ",
-                                                                                                 "'", cols$col_clean[i], "-checkbox2' ",
-                                                                                                 "aria-label = 'show/hide this column'",
-                                                                                                 "class = '",
-                                                                                                 ifelse((i %% 3) == 0, "hint--bottom-left", "hint--bottom-right"),
-                                                                                                 " hint--rounded'>")),
-                                                                             choices = sort(unique(as.character(taxonomy_syn[[cols$col[i]]]))),
-                                                                             multiple = TRUE))
-                                                        }))
-                                                      ),
-                                                      accordion_panel(
-                                                        "Locality",
-                                                        lapply(unique(cols$cat[cols$cat == "Distribution"]), function(cat_name) {
-                                                          cols_sub <- cols %>% filter(cat == cat_name)
-                                                          list(fluidRow(column(12, h5(cat_name, id = idEscape(cat_name)))),
-                                                               fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
-                                                                 column(6,
-                                                                        selectInput(inputId = paste0(cols_sub$col_clean[i], "2"),
-                                                                                    label = HTML(paste0(cols_sub$col[i],
-                                                                                                        " <input type = 'checkbox' checked id = ",
-                                                                                                        "'", cols_sub$col_clean[i], "-checkbox2' ",
-                                                                                                        "aria-label = 'show/hide this column'",
-                                                                                                        "class = '",
-                                                                                                        ifelse((i %% 2) == 1, "hint--bottom-right", "hint--bottom-left"),
-                                                                                                        " hint--rounded'>")),
-                                                                                    choices = sort(unique(as.character(taxonomy_syn[[cols_sub$col[i]]]))),
-                                                                                    multiple = TRUE))
-                                                               })))
-                                                        })
-                                                      )
-                                            )
-            )),
-            #### reset button ----
-            div(style="text-align: center; padding-bottom: var(--bslib-sidebar-padding);",
-                add_prompt(actionButton("reset_input2", HTML(paste(fa("rotate", prefer_type = "solid"), "Reset all filters")), width = "50%"),
-                           message = "Reset the table to its original form",
-                           position = "top", rounded = TRUE)),
-            id = "side-panel2"
-            )
-          )),
+        div(tags$button(HTML(paste(fa("download", prefer_type = "solid"), "Download Data")),
+                        class = "btn btn-default dropdown-toggle",
+                        type = "button", "data-bs-toggle" = "dropdown", "aria-haspopup" = "true",
+                        "aria-expanded" = "false"),
+            tags$ul(
+              tags$li(tags$button(HTML(paste(fa("clipboard"), "Copy to Clipboard")),
+                                  class="btn btn-default dropdown-item",
+                                  onclick = JS("var tmp = $('.rt-tr-header .rt-th').map(function() {
+                                                            return this.getAttribute('aria-label').replace('Sort ', '');
+                                                          }).toArray()
+                                                navigator.clipboard.writeText(Reactable.getDataCSV('table2', {columnIds: tmp, sep: '\t'}));
+                                                alert('Copied the table to the clipboard');")) %>%
+                        tooltip("Copy the below table to the clipboard")),
+              tags$li(tags$button(HTML(paste(fa("file-csv", prefer_type = "solid"), "Download CSV")),
+                                  onclick = JS("var tmp = $('.rt-tr-header .rt-th').map(function() {
+                                                            return this.getAttribute('aria-label').replace('Sort ', '');
+                                                          }).toArray()
+                                                Reactable.downloadDataCSV('table2', 'STDB.csv', {columnIds: tmp})"),
+                                  class="btn btn-default dropdown-item") %>%
+                        tooltip("Download a copy of the below table in CSV format")),
+              tags$li(tags$button(HTML(paste(fa("file-excel", prefer_type = "solid"), "Download Excel")),
+                                  onclick = JS("exportExcel('table2', 'STDB.xlsx')"),
+                                  class="btn btn-default dropdown-item") %>%
+                        tooltip("Download an empty copy of the below table in Excel format")),
+              class="dropdown-menu"),
+            class = "btn-group", role="group",
+            style = "position: absolute; top: var(--bslib-mb-space); z-index: 10;"),
+        reactableOutput("table2"),
+        div(
+          div(paste0("Showing ", length(unique(shiny_schiz$Species)), " species"),
+              id = "species_count2", style = "margin-right: auto;"),
+          style = "display: flex; margin-top: calc(-1 * var(--bslib-mb-spacer));"
+        ),
+        #### filters ----
+        sidebar = sidebar(width = "35%",
+                          card(fluidRow(h4("Filters"),
+                                        accordion(multiple = FALSE,
+                                                  accordion_panel(
+                                                    "Taxonomy",
+                                                    fluidRow(lapply(seq_len(cols %>% filter(tab == 1, cat != "Sex") %>% nrow()), function(i) {
+                                                      column(4,
+                                                             selectInput(inputId = paste0(cols$col_clean[i], "2"),
+                                                                         label = HTML(paste0(cols$col[i],
+                                                                                             " <input type = 'checkbox' checked id = ",
+                                                                                             "'", cols$col_clean[i], "-checkbox2'>")) %>%
+                                                                           tooltip("show/hide this column"),
+                                                                         choices = sort(unique(as.character(taxonomy_syn[[cols$col[i]]]))),
+                                                                         multiple = TRUE))
+                                                    }))
+                                                  ),
+                                                  accordion_panel(
+                                                    "Locality",
+                                                    lapply(unique(cols$cat[cols$cat == "Distribution"]), function(cat_name) {
+                                                      cols_sub <- cols %>% filter(cat == cat_name)
+                                                      list(fluidRow(column(12, h5(cat_name, id = idEscape(cat_name)))),
+                                                           fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
+                                                             column(6,
+                                                                    selectInput(inputId = paste0(cols_sub$col_clean[i], "2"),
+                                                                                label = HTML(paste0(cols_sub$col[i],
+                                                                                                    " <input type = 'checkbox' checked id = ",
+                                                                                                    "'", cols_sub$col_clean[i], "-checkbox2'>")) %>%
+                                                                                  tooltip("show/hide this column"),
+                                                                                choices = sort(unique(as.character(taxonomy_syn[[cols_sub$col[i]]]))),
+                                                                                multiple = TRUE))
+                                                           })))
+                                                    })
+                                                  )
+                                        )
+        )),
+        #### reset button ----
+        div(style="text-align: center; padding-bottom: var(--bslib-sidebar-padding);",
+            actionButton("reset_input2", HTML(paste(fa("rotate", prefer_type = "solid"), "Reset all filters")), width = "50%") %>% 
+              tooltip("Reset the table to its original form")),
+        id = "side-panel2"
+        )
+      )),
       ### general anatomy ----
       nav_panel(
         "Schizomid General Anatomy", value = "anatomy",
