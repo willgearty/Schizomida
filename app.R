@@ -10,7 +10,6 @@
 library(shiny)
 library(shinyjs)
 library(dplyr)
-library(janitor)
 library(htmltools)
 library(fontawesome)
 library(bslib)
@@ -70,8 +69,9 @@ cols <- data.frame(cat = colnames(shiny_schiz_orig),
   mutate(filt_clean = idEscape(filt)) %>%
   mutate(dupe = duplicated(filt))
 
-shiny_schiz <- shiny_schiz_orig %>%
-  row_to_names(1) %>%
+shiny_schiz <- shiny_schiz_orig[c(-1), ]
+colnames(shiny_schiz) <- as.character(unlist(shiny_schiz_orig[1, ], use.names = FALSE))
+shiny_schiz <- shiny_schiz %>%
   arrange(Family, Subfamily, Genus, Species, Sex) %>%
   mutate(across(where(is.character), ~na_if(., "")))
 
