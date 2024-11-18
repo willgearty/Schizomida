@@ -195,39 +195,39 @@ server <- function(input, output, session) {
   ## show/hide columns ----
   ### table 1 ----
   # monitor checkboxes for table1
-  lapply(which(cols$tab %in% 1:5 & !cols$dupe), function(i) {
-    observeEvent(
-      input[[paste0(cols$filt_clean[i], "-checkbox1")]],
-      {
-        if (input[[paste0(cols$filt_clean[i], "-checkbox1")]]) {
-          for (col in cols$col[which(cols$filt_clean == cols$filt_clean[i])]) {
-            runjs(paste0("Reactable.toggleHideColumn('table1', '", col,"', false);"))
-          }
-        } else {
-          for (col in cols$col[which(cols$filt_clean == cols$filt_clean[i])]) {
-            runjs(paste0("Reactable.toggleHideColumn('table1', '", col,"', true);"))
-          }
-        }
-        runjs("$('.rt-sticky').css({'position': 'relative', 'left': 'unset'}).removeClass('rt-sticky');
-               $('#freeze_btn').removeClass('active');")
-        
-      },
-      ignoreInit = TRUE
-    )
-  })
+  checkbox1_rows <- which(cols$tab %in% 1:5 & !cols$dupe)
+  update_cols1 <- function() {
+    hide_cols <- c()
+    for (i in checkbox1_rows) {
+      if (input[[paste0(cols$filt_clean[i], "-checkbox1")]] == FALSE) {
+        hide_cols <- c(hide_cols, cols$col[i])
+      }
+    }
+    hide_cols_json <- paste0("['", paste0(hide_cols, collapse = "','") , "']")
+    runjs(paste0("Reactable.setHiddenColumns('table1', ", hide_cols_json,", false);",
+                 "$('.rt-sticky').css({'position': 'relative', 'left': 'unset'}).removeClass('rt-sticky');",
+                 "$('#freeze_btn').removeClass('active');"))
+  }
+
+  observeEvent(
+    lapply(checkbox1_rows, function(i) {
+      input[[paste0(cols$filt_clean[i], "-checkbox1")]]
+    }),
+    update_cols1(), ignoreInit = TRUE
+  )
   
   #### hide entire tabs of columns ----
   lapply(1:5, function(i) {
     observeEvent(
       input[[paste0("hide_all_", i)]],
       {
+        els <- paste0("#", cols$filt_clean[cols$tab == i], "-checkbox1", collapse = ", ")
         if (input[[paste0("hide_all_", i)]]) {
-          lapply(cols$filt_clean[cols$tab == i],
-                 function(j) runjs(paste0("$('#", j, "-checkbox1').prop('checked', true).trigger('change');")))
+          runjs(paste0("$('", els, "').prop('checked', true).trigger('change');"))
         } else {
-          lapply(cols$filt_clean[cols$tab == i],
-                 function(j) runjs(paste0("$('#", j, "-checkbox1').prop('checked', false).trigger('change');")))
+          runjs(paste0("$('", els, "').prop('checked', false).trigger('change');"))
         }
+        update_cols1()
       },
       ignoreInit = TRUE
     )
