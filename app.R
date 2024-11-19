@@ -594,7 +594,7 @@ ui <- {
          .collapse-toggle {
            z-index: 12 !important;
          }
-         .darkmode--activated .rt-tr-striped {
+         .darkmode--activated .rt-tr-striped, .darkmode--activated .rt-tr-striped-sticky {
            background-color: #e0e0e0 !important;
          }
          .darkmode-layer, .darkmode-toggle {
