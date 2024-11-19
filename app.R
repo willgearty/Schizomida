@@ -206,7 +206,7 @@ server <- function(input, output, session) {
     hide_cols_json <- paste0("['", paste0(hide_cols, collapse = "','") , "']")
     runjs(paste0("Reactable.setHiddenColumns('table1', ", hide_cols_json,", false);",
                  "$('.rt-sticky').css({'position': 'relative', 'left': 'unset'}).removeClass('rt-sticky');",
-                 "$('#freeze_btn').removeClass('active');"))
+                 "$('#freeze_btn').removeClass('btn-info');"))
   }
 
   observeEvent(
@@ -463,7 +463,7 @@ server <- function(input, output, session) {
     data <- values$data
     # update unique species count
     runjs(paste0("$('#species_count').html('(", length(unique(data$Species)), " unique species)')"))
-    runjs("$('#freeze_btn').removeClass('active');")
+    runjs("$('#freeze_btn').removeClass('btn-info');")
     reactable(data,
               columns = setNames(lapply(seq_len(nrow(cols)), function(i) {
                 colDef(cols$col[i],
@@ -707,12 +707,12 @@ ui <- {
                           $('.rt-sticky').css({'position': 'relative', 'left': 'unset'}).removeClass('rt-sticky');
                           $('.rt-tr-striped-sticky').addClass('rt-tr-striped').removeClass('rt-tr-striped-sticky');
                           $('.rt-tr-highlight-sticky').addClass('rt-tr-highlight').removeClass('rt-tr-highlight-sticky');
-                          $('#freeze_btn').removeClass('active');
+                          $('#freeze_btn').removeClass('btn-info');
                         } else {
                           $('.rt-tr:not(.rt-tr-group-header').find('div:first').css({'position': 'sticky', 'left': '0px'}).addClass('rt-sticky');
                           $('.rt-tr-striped').removeClass('rt-tr-striped').addClass('rt-tr-striped-sticky');
                           $('.rt-tr-highlight').removeClass('rt-tr-highlight').addClass('rt-tr-highlight-sticky');
-                          $('#freeze_btn').addClass('active');
+                          $('#freeze_btn').addClass('btn-info');
                         }")) %>%
               tooltip("Freeze the first currently visible column", class = "btn btn-default", style = "padding: 0;"),
             class = "btn-group", role="group",
