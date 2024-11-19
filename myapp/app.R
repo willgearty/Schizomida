@@ -200,13 +200,13 @@ server <- function(input, output, session) {
     hide_cols <- c()
     for (i in checkbox1_rows) {
       if (input[[paste0(cols$filt_clean[i], "-checkbox1")]] == FALSE) {
-        hide_cols <- c(hide_cols, cols$col[i])
+        hide_cols <- c(hide_cols, cols$col[which(cols$filt == cols$filt[i])])
       }
     }
     hide_cols_json <- paste0("['", paste0(hide_cols, collapse = "','") , "']")
     runjs(paste0("Reactable.setHiddenColumns('table1', ", hide_cols_json,", false);",
                  "$('.rt-sticky').css({'position': 'relative', 'left': 'unset'}).removeClass('rt-sticky');",
-                 "$('#freeze_btn').removeClass('active');"))
+                 "$('#freeze_btn').removeClass('btn-info');"))
   }
 
   observeEvent(
@@ -460,12 +460,12 @@ server <- function(input, output, session) {
 
   ### render table ----
   output$table1 <- renderReactable({
-    data <- values$data
+    data <- cbind(values$data, details = NA)
     # update unique species count
     runjs(paste0("$('#species_count').html('(", length(unique(data$Species)), " unique species)')"))
-    runjs("$('#freeze_btn').removeClass('active');")
+    runjs("$('#freeze_btn').removeClass('btn-info');")
     reactable(data,
-              columns = setNames(lapply(seq_len(nrow(cols)), function(i) {
+              columns = c(setNames(lapply(seq_len(nrow(cols)), function(i) {
                 colDef(cols$col[i],
                        show = case_when(
                          is.null(input$Sex) ~ TRUE,
@@ -487,7 +487,9 @@ server <- function(input, output, session) {
                        )
                 )
               }), cols$col),
-              defaultColDef = colDef(width = 200, html = TRUE,
+              list(details = colDef("", sortable = FALSE,
+                                    cell = function() tags$button("Show summary", class = "btn btn-default")))),
+              defaultColDef = colDef(minWidth = 200, html = TRUE,
                                      na = as.character(span(tags$i("NA"), style = "color: rgb(151,151,151);")),
                                      headerStyle = "cursor: pointer;"),
               columnGroups = lapply(unique(cols$cat[-which(cols$cat == cols$col)]), function(cat) {
@@ -594,7 +596,7 @@ ui <- {
          .collapse-toggle {
            z-index: 12 !important;
          }
-         .darkmode--activated .rt-tr-striped {
+         .darkmode--activated .rt-tr-striped, .darkmode--activated .rt-tr-striped-sticky {
            background-color: #e0e0e0 !important;
          }
          .darkmode-layer, .darkmode-toggle {
@@ -707,12 +709,12 @@ ui <- {
                           $('.rt-sticky').css({'position': 'relative', 'left': 'unset'}).removeClass('rt-sticky');
                           $('.rt-tr-striped-sticky').addClass('rt-tr-striped').removeClass('rt-tr-striped-sticky');
                           $('.rt-tr-highlight-sticky').addClass('rt-tr-highlight').removeClass('rt-tr-highlight-sticky');
-                          $('#freeze_btn').removeClass('active');
+                          $('#freeze_btn').removeClass('btn-info');
                         } else {
                           $('.rt-tr:not(.rt-tr-group-header').find('div:first').css({'position': 'sticky', 'left': '0px'}).addClass('rt-sticky');
                           $('.rt-tr-striped').removeClass('rt-tr-striped').addClass('rt-tr-striped-sticky');
                           $('.rt-tr-highlight').removeClass('rt-tr-highlight').addClass('rt-tr-highlight-sticky');
-                          $('#freeze_btn').addClass('active');
+                          $('#freeze_btn').addClass('btn-info');
                         }")) %>%
               tooltip("Freeze the first currently visible column", class = "btn btn-default", style = "padding: 0;"),
             class = "btn-group", role="group",
