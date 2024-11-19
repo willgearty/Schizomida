@@ -460,12 +460,12 @@ server <- function(input, output, session) {
 
   ### render table ----
   output$table1 <- renderReactable({
-    data <- values$data
+    data <- cbind(values$data, details = NA)
     # update unique species count
     runjs(paste0("$('#species_count').html('(", length(unique(data$Species)), " unique species)')"))
     runjs("$('#freeze_btn').removeClass('btn-info');")
     reactable(data,
-              columns = setNames(lapply(seq_len(nrow(cols)), function(i) {
+              columns = c(setNames(lapply(seq_len(nrow(cols)), function(i) {
                 colDef(cols$col[i],
                        show = case_when(
                          is.null(input$Sex) ~ TRUE,
@@ -487,7 +487,9 @@ server <- function(input, output, session) {
                        )
                 )
               }), cols$col),
-              defaultColDef = colDef(width = 200, html = TRUE,
+              list(details = colDef("", sortable = FALSE,
+                                    cell = function() tags$button("Show summary", class = "btn btn-default")))),
+              defaultColDef = colDef(minWidth = 200, html = TRUE,
                                      na = as.character(span(tags$i("NA"), style = "color: rgb(151,151,151);")),
                                      headerStyle = "cursor: pointer;"),
               columnGroups = lapply(unique(cols$cat[-which(cols$cat == cols$col)]), function(cat) {
