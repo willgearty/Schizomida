@@ -640,6 +640,14 @@ ui <- {
            margin-right: 10px !important;
            font-size: large !important;
          }
+         .main {
+           container-type: inline-size;
+         }
+         @container (max-width: 550px) {
+           #freeze_btn {
+             display: none;
+           }
+         }
          "
         ),
       ),
