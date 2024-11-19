@@ -200,7 +200,7 @@ server <- function(input, output, session) {
     hide_cols <- c()
     for (i in checkbox1_rows) {
       if (input[[paste0(cols$filt_clean[i], "-checkbox1")]] == FALSE) {
-        hide_cols <- c(hide_cols, cols$col[i])
+        hide_cols <- c(hide_cols, cols$col[which(cols$filt == cols$filt[i])])
       }
     }
     hide_cols_json <- paste0("['", paste0(hide_cols, collapse = "','") , "']")
