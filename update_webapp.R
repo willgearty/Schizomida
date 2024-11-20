@@ -35,7 +35,7 @@ template_params <- list(
                                       twitter_creator = "@willgearty"
                                     ), collapse = '\n    '))
   )
-shinylive::export("myapp", "docs", assets_version = "0.5.0",
+shinylive::export("myapp", "docs", assets_version = "0.9.1",
                   template_params = template_params)
 
 # run this to check that everything looks ok
