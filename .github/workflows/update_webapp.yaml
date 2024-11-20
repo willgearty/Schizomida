@@ -2,7 +2,10 @@
 # Need help debugging build failures? Start at https://github.com/r-lib/actions#where-to-find-help
 on:
   push:
-    paths: ["www/**", "data/drawings_database/**", "data/STDB_data.xlsx", "data/figure_captions.xlsx", "data/**.htm", "app.R", "convert_data.R", "update_webapp.R"]
+    paths: [".github/workflows/update_webapp.yaml", "www/**",
+      "data/drawings_database/**", "data/STDB_data.xlsx",
+      "data/figure_captions.xlsx", "data/**.htm",
+      "app.R", "convert_data.R", "update_webapp.R"]
 
 name: Update webapp
 
