@@ -49,7 +49,7 @@ jobs:
         run: |
           git config --local user.name "${{ github.actor }}"
           git config --local user.email "${{ github.actor }}@users.noreply.github.com"
-          git add *
-          git commit -am "Update webapp" || echo "No changes to commit"
+          git add -A
+          git commit -m "Update webapp" || echo "No changes to commit"
           git pull --ff-only
           git push origin
