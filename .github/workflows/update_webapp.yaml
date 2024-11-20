@@ -27,9 +27,9 @@ jobs:
       - name: Install dependencies
         run: |
           install.packages("pak", repos = "https://r-lib.github.io/p/pak/dev/")
-          pak::pkg_install(c("cpp11", "shiny", "shinyjs", "dplyr", "openxlsx", "DT",
-                             "janitor", "htmltools", "fontawesome", "prompter", "bslib",
-                             "shinylive", "tiff", "png"))
+          install.packages("renv")
+          pak::pkg_install(unique(c(renv::dependencies("convert_data.R")$Package,
+                                    renv::dependencies("update_webapp.R")$Package)))
         shell: Rscript {0}
 
       - name: Convert data
