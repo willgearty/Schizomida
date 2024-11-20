@@ -27,7 +27,7 @@ template_params <- list(
                                     meta_social(
                                       title = "Schizomida Trait Data Base (STDB)",
                                       url = "https://williamgearty.com/Schizomida/",
-                                      image = "https://williamgearty.com/Schizomida/schizomida.jpg",
+                                      image = "https://williamgearty.com/Schizomida/schizomida.png",
                                       image_alt = "A photo of Bucinozomus hortuspalmarum (c) Melvyn Yeo",
                                       og_type = "website",
                                       og_author = c("William Gearty", "Sandro Pascal Müller", "Ilian De Francesco Magnussen"),
