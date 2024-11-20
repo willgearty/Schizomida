@@ -33,7 +33,15 @@ template_params <- list(
                                       og_author = c("William Gearty", "Sandro Pascal Müller", "Ilian De Francesco Magnussen"),
                                       twitter_card_type = "summary",
                                       twitter_creator = "@willgearty"
-                                    ), collapse = '\n    '))
+                                    ), collapse = '\n    '), "\n",
+                           "    <!-- Google tag (gtag.js) -->\n",
+                           "    <script async src='https://www.googletagmanager.com/gtag/js?id=G-B48C68KGQJ'></script>\n",
+                           "    <script>\n",
+                           "      window.dataLayer = window.dataLayer || [];\n",
+                           "      function gtag(){dataLayer.push(arguments);}\n",
+                           "      gtag('js', new Date());\n",
+                           "      gtag('config', 'G-B48C68KGQJ');\n",
+                           "    </script>")
   )
 shinylive::export("myapp", "docs", assets_version = "0.9.1",
                   template_params = template_params)
