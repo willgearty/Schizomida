@@ -31,7 +31,8 @@ jobs:
         run: |
           install.packages("pak", repos = "https://r-lib.github.io/p/pak/dev/")
           install.packages("renv")
-          pak::pkg_install(unique(c(renv::dependencies("convert_data.R")$Package,
+          pak::pkg_install(unique(c(renv::dependencies("app.R")$Package,
+                                    renv::dependencies("convert_data.R")$Package,
                                     renv::dependencies("update_webapp.R")$Package)))
         shell: Rscript {0}
 
