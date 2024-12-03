@@ -460,6 +460,7 @@ server <- function(input, output, session) {
 
   ### render table ----
   output$table1 <- renderReactable({
+    page_size <- coalesce(getReactableState("table1", name = "pageSize"), 100)
     data <- cbind(values$data, details = NA)
     # update unique species count
     runjs(paste0("$('#species_count').html('(", length(unique(data$Species)), " unique species)')"))
@@ -508,7 +509,7 @@ server <- function(input, output, session) {
               searchable = TRUE,
               pagination = TRUE,
               showPageSizeOptions = TRUE,
-              defaultPageSize = 100,
+              defaultPageSize = page_size,
               pageSizeOptions = c(50, 100, 250, 1000)
     )
   })
@@ -535,6 +536,7 @@ server <- function(input, output, session) {
 
   ### render table ----
   output$table2 <- renderReactable({
+    page_size <- coalesce(getReactableState("table2", name = "pageSize"), 100)
     data2 <- values$data2
     # update unique species count
     runjs(paste0("$('#species_count2').html('Showing ", length(unique(data2$Species)), " species')"))
@@ -550,7 +552,7 @@ server <- function(input, output, session) {
               searchable = TRUE,
               pagination = TRUE,
               showPageSizeOptions = TRUE,
-              defaultPageSize = 100,
+              defaultPageSize = page_size,
               pageSizeOptions = c(50, 100, 250, 1000)
     )
   })
