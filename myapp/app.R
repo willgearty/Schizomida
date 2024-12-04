@@ -548,14 +548,14 @@ server <- function(input, output, session) {
               defaultColDef = colDef(width = 200, html = TRUE,
                                      na = as.character(span(tags$i("NA"), style = "color: rgb(151,151,151);")),
                                      headerStyle = "cursor: pointer;"),
-              columns = setNames(lapply(colnames(data2), function(col) {
+              columns = sapply(colnames(data2), function(col) {
                 colDef(col,
                        show = case_when(
                          !col %in% cols$col ~ TRUE,
                          isolate(input[[paste0(idEscape(col), "-checkbox2")]]) == FALSE ~ FALSE
                        )
                 )
-              }), data2_colnames),
+              }),
               sortable = TRUE,
               showSortable = TRUE,
               defaultSorted = sorted,
