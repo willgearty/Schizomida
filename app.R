@@ -555,7 +555,7 @@ server <- function(input, output, session) {
                          isolate(input[[paste0(idEscape(col), "-checkbox2")]]) == FALSE ~ FALSE
                        )
                 )
-              }),
+              }, simplify = FALSE),
               sortable = TRUE,
               showSortable = TRUE,
               defaultSorted = sorted,
