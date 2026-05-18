@@ -719,7 +719,7 @@ ui <- {
               tags$li(tags$button(HTML(paste(fa("file-excel"), "Download Empty Excel")),
                                   onclick = JS("exportExcel('table1', 'STDB_empty.xlsx', true)"),
                                   class="btn btn-default dropdown-item") %>%
-                        tooltip("Download an empty copy of the below table in Excel format (only colomn headers)")),
+                        tooltip("Download an empty copy of the below table in Excel format (only column headers)")),
               class="dropdown-menu"),
             class = "btn-group", role="group"),
             tags$button("Freeze First Column", id = "freeze_btn", class = "btn btn-default",
