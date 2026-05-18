@@ -692,7 +692,8 @@ ui <- {
     titlePanel('Schizomida Trait Data Base (STDB)'),
     ## panels ----
     page_navbar(theme = bs_theme(version = 5, preset="bootstrap"),
-      bg = "#f7f6f4", gap = "0px", id = "navbarID", selected = "database",
+      navbar_options = navbar_options(bg = "#f7f6f4"),
+      gap = "0px", id = "navbarID", selected = "database",
       ### database ----
       nav_panel("Database", value = "database", layout_sidebar(
         div(div(tags$button(HTML(paste(fa("download", prefer_type = "solid"), "Download Data")),
@@ -702,16 +703,12 @@ ui <- {
             tags$ul(
               tags$li(tags$button(HTML(paste(fa("clipboard"), "Copy to Clipboard")),
                                               class="btn btn-default dropdown-item",
-                                  onclick = JS("var tmp = $('.rt-tr-header .rt-th').map(function() {
-                                                            return this.getAttribute('aria-label').replace('Sort ', '');
-                                                          }).toArray()
+                                  onclick = JS("var tmp = getVisibleColumnIds();
                                                 navigator.clipboard.writeText(Reactable.getDataCSV('table1', {columnIds: tmp, sep: '\t'}));
                                                 alert('Copied the table to the clipboard');")) %>%
                         tooltip("Copy the below table to the clipboard")),
               tags$li(tags$button(HTML(paste(fa("file-csv", prefer_type = "solid"), "Download CSV")),
-                                  onclick = JS("var tmp = $('.rt-tr-header .rt-th').map(function() {
-                                                            return this.getAttribute('aria-label').replace('Sort ', '');
-                                                          }).toArray()
+                                  onclick = JS("var tmp = getVisibleColumnIds();
                                                 Reactable.downloadDataCSV('table1', 'STDB.csv', {columnIds: tmp})"),
                                   class="btn btn-default dropdown-item") %>%
                         tooltip("Download a copy of the below table in CSV format")),
@@ -931,16 +928,12 @@ ui <- {
             tags$ul(
               tags$li(tags$button(HTML(paste(fa("clipboard"), "Copy to Clipboard")),
                                   class="btn btn-default dropdown-item",
-                                  onclick = JS("var tmp = $('.rt-tr-header .rt-th').map(function() {
-                                                            return this.getAttribute('aria-label').replace('Sort ', '');
-                                                          }).toArray()
+                                  onclick = JS("var tmp = getVisibleColumnIds();
                                                 navigator.clipboard.writeText(Reactable.getDataCSV('table2', {columnIds: tmp, sep: '\t'}));
                                                 alert('Copied the table to the clipboard');")) %>%
                         tooltip("Copy the below table to the clipboard")),
               tags$li(tags$button(HTML(paste(fa("file-csv", prefer_type = "solid"), "Download CSV")),
-                                  onclick = JS("var tmp = $('.rt-tr-header .rt-th').map(function() {
-                                                            return this.getAttribute('aria-label').replace('Sort ', '');
-                                                          }).toArray()
+                                  onclick = JS("var tmp = getVisibleColumnIds();
                                                 Reactable.downloadDataCSV('table2', 'STDB.csv', {columnIds: tmp})"),
                                   class="btn btn-default dropdown-item") %>%
                         tooltip("Download a copy of the below table in CSV format")),
