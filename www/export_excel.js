@@ -43,11 +43,15 @@ function downloadExcelFromTSV(tsv, filename, empty = false) {
   });
 }
 
+function getVisibleColumnIds() {
+  return $('.rt-tr-header:visible .rt-th').map(function() {
+    var lbl = this.getAttribute('aria-label');
+    return lbl ? lbl.replace('Sort ', '') : null;
+  }).toArray().filter(function(x) { return x !== null; });
+}
+
 // Custom message handler for Shiny to export to Excel
 function exportExcel(tab_id, filename, empty = false) {
-  var tmp = $('.rt-tr-header .rt-th').map(function() {
-              return this.getAttribute('aria-label').replace('Sort ', '');
-            }).toArray()
-  var tsv = Reactable.getDataCSV(tab_id, {columnIds: tmp, sep: '\\t' });
+  var tsv = Reactable.getDataCSV(tab_id, {columnIds: getVisibleColumnIds(), sep: '\t'});
   downloadExcelFromTSV(tsv, filename, empty);
 }

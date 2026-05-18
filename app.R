@@ -702,16 +702,12 @@ ui <- {
             tags$ul(
               tags$li(tags$button(HTML(paste(fa("clipboard"), "Copy to Clipboard")),
                                               class="btn btn-default dropdown-item",
-                                  onclick = JS("var tmp = $('.rt-tr-header .rt-th').map(function() {
-                                                            return this.getAttribute('aria-label').replace('Sort ', '');
-                                                          }).toArray()
+                                  onclick = JS("var tmp = getVisibleColumnIds();
                                                 navigator.clipboard.writeText(Reactable.getDataCSV('table1', {columnIds: tmp, sep: '\t'}));
                                                 alert('Copied the table to the clipboard');")) %>%
                         tooltip("Copy the below table to the clipboard")),
               tags$li(tags$button(HTML(paste(fa("file-csv", prefer_type = "solid"), "Download CSV")),
-                                  onclick = JS("var tmp = $('.rt-tr-header .rt-th').map(function() {
-                                                            return this.getAttribute('aria-label').replace('Sort ', '');
-                                                          }).toArray()
+                                  onclick = JS("var tmp = getVisibleColumnIds();
                                                 Reactable.downloadDataCSV('table1', 'STDB.csv', {columnIds: tmp})"),
                                   class="btn btn-default dropdown-item") %>%
                         tooltip("Download a copy of the below table in CSV format")),
@@ -931,16 +927,12 @@ ui <- {
             tags$ul(
               tags$li(tags$button(HTML(paste(fa("clipboard"), "Copy to Clipboard")),
                                   class="btn btn-default dropdown-item",
-                                  onclick = JS("var tmp = $('.rt-tr-header .rt-th').map(function() {
-                                                            return this.getAttribute('aria-label').replace('Sort ', '');
-                                                          }).toArray()
+                                  onclick = JS("var tmp = getVisibleColumnIds();
                                                 navigator.clipboard.writeText(Reactable.getDataCSV('table2', {columnIds: tmp, sep: '\t'}));
                                                 alert('Copied the table to the clipboard');")) %>%
                         tooltip("Copy the below table to the clipboard")),
               tags$li(tags$button(HTML(paste(fa("file-csv", prefer_type = "solid"), "Download CSV")),
-                                  onclick = JS("var tmp = $('.rt-tr-header .rt-th').map(function() {
-                                                            return this.getAttribute('aria-label').replace('Sort ', '');
-                                                          }).toArray()
+                                  onclick = JS("var tmp = getVisibleColumnIds();
                                                 Reactable.downloadDataCSV('table2', 'STDB.csv', {columnIds: tmp})"),
                                   class="btn btn-default dropdown-item") %>%
                         tooltip("Download a copy of the below table in CSV format")),
