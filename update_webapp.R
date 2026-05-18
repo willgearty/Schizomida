@@ -43,7 +43,7 @@ template_params <- list(
                            "      gtag('config', 'G-B48C68KGQJ');\n",
                            "    </script>")
   )
-shinylive::export("myapp", "docs", assets_version = "0.9.1",
+shinylive::export("myapp", "docs", assets_version = "0.10.8",
                   template_params = template_params)
 
 # run this to check that everything looks ok
