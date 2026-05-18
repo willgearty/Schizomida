@@ -715,7 +715,7 @@ ui <- {
               tags$li(tags$button(HTML(paste(fa("file-excel", prefer_type = "solid"), "Download Excel")),
                                   onclick = JS("exportExcel('table1', 'STDB.xlsx')"),
                                   class="btn btn-default dropdown-item") %>%
-                        tooltip("Download an empty copy of the below table in Excel format")),
+                        tooltip("Download a copy of the below table in Excel format")),
               tags$li(tags$button(HTML(paste(fa("file-excel"), "Download Empty Excel")),
                                   onclick = JS("exportExcel('table1', 'STDB_empty.xlsx', true)"),
                                   class="btn btn-default dropdown-item") %>%
@@ -940,7 +940,7 @@ ui <- {
               tags$li(tags$button(HTML(paste(fa("file-excel", prefer_type = "solid"), "Download Excel")),
                                   onclick = JS("exportExcel('table2', 'STDB.xlsx')"),
                                   class="btn btn-default dropdown-item") %>%
-                        tooltip("Download an empty copy of the below table in Excel format")),
+                        tooltip("Download a copy of the below table in Excel format")),
               class="dropdown-menu"),
             class = "btn-group", role="group",
             style = "position: absolute; top: var(--bslib-mb-space); z-index: 10;"),
