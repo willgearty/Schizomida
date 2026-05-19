@@ -1,0 +1,104 @@
+body > h2 {
+  margin-left: .5rem;
+}
+
+#Genus option, #Genus + div, #Species option, #Species + div {
+  font-style: italic;
+}
+
+.reactable {
+  padding-right: var(--_padding);
+}
+
+div.col-sm-6:has(> div.form-group[style*='display: none']) {
+  display: none;
+}
+
+.main {
+  padding-right: 0px !important;
+  container-type: inline-size;
+}
+
+h5 {
+  font-style: italic;
+}
+
+.sidebar-content {
+  padding: 0 !important;
+}
+
+.sidebar-content .card-body {
+  height: 80vh !important;
+  height: 80dvh !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+#side-panel1 {
+  z-index: 11;
+}
+
+.collapse-toggle {
+  z-index: 12 !important;
+}
+
+/* Dark mode tweaks (darkmode-js widget) */
+.darkmode-layer, .darkmode-toggle {
+  z-index: 500;
+}
+
+.darkmode--activated .rt-tr-striped, .darkmode--activated .rt-tr-striped-sticky {
+  background-color: #e0e0e0 !important;
+}
+
+.darkmode--activated .modal-content {
+  background-color: black !important;
+  color: white !important;
+  border: solid white !important;
+}
+
+.darkmode--activated .modal-content img {
+  filter: invert(100%);
+}
+
+/* Accordion section colors */
+.accordion-item:nth-of-type(1) .accordion-header,
+.accordion-item:nth-of-type(1) .accordion-button {
+  background-color: #aaffb1;
+}
+
+.accordion-item:nth-of-type(2) .accordion-header,
+.accordion-item:nth-of-type(2) .accordion-button {
+  background-color: #ffd0d0;
+}
+
+.accordion-item:nth-of-type(3) .accordion-header,
+.accordion-item:nth-of-type(3) .accordion-button {
+  background-color: #ffdfa5;
+}
+
+.accordion-item:nth-of-type(4) .accordion-header,
+.accordion-item:nth-of-type(4) .accordion-button {
+  background-color: #ffc0ff;
+}
+
+.accordion-item:nth-of-type(5) .accordion-header,
+.accordion-item:nth-of-type(5) .accordion-button {
+  background-color: #ccccff;
+}
+
+.accordion-title {
+  font-size: large !important;
+}
+
+.nav li a {
+  margin-right: 10px !important;
+  font-size: large !important;
+}
+
+/* Hide freeze-column button on narrow viewports */
+@container (max-width: 550px) {
+  #freeze_btn {
+    display: none;
+  }
+}
