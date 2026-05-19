@@ -511,7 +511,8 @@ server <- function(input, output, session) {
                          isolate(input[[paste0(cols$col_clean[i], "-checkbox1")]]) == FALSE ~ FALSE,
                          is.null(input$Sex) ~ TRUE,
                          !("male" %in% input$Sex) && cols$col[i] %in% male_names ~ FALSE,
-                         !("female" %in% input$Sex) && cols$col[i] %in% female_names ~ FALSE
+                         !("female" %in% input$Sex) && cols$col[i] %in% female_names ~ FALSE,
+                         .default = TRUE
                        ),
                        header = ifelse(
                          cols$col_clean[i] %in% fig_captions$Filename,
@@ -586,7 +587,8 @@ server <- function(input, output, session) {
                 colDef(col,
                        show = case_when(
                          !col %in% cols$col ~ TRUE,
-                         isolate(input[[paste0(idEscape(col), "-checkbox2")]]) == FALSE ~ FALSE
+                         isolate(input[[paste0(idEscape(col), "-checkbox2")]]) == FALSE ~ FALSE,
+                         .default = TRUE
                        )
                 )
               }, simplify = FALSE),
