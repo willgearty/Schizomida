@@ -138,7 +138,7 @@ server <- function(input, output, session) {
   ### row selection ----
   # modal popup when selecting a row
   observeEvent(input$show_details, {
-    row <- values$data[input$show_details, ]
+    row <- filtered_data()[input$show_details, ]
     modal <- modalDialog(
       tags$table(lapply(colnames(row), function(name) {
         tags$tr(tags$th(name), tags$td(row[[name]]))
@@ -395,52 +395,43 @@ server <- function(input, output, session) {
   # reactables ----
   ## data table ----
   ### setup reactive data ----
-  values <- reactiveValues(data = shiny_schiz, data2 = taxonomy_syn)
-
-  update_data <- function() {
+  # filter shiny_schiz based on all current filter inputs; this reactive
+  # invalidates whenever any filter (or its -NAs checkbox) changes
+  filtered_data <- reactive({
     data <- shiny_schiz
     for (i in seq_len(nrow(cols))) {
       input_value <- input[[cols$filt_clean[i]]]
-      if (!is.null(input_value)) {
-        if (is.numeric(shiny_schiz[[cols$col[i]]])) {
-          min_val <- col_ranges[[cols$col[i]]][1]
-          max_val <- col_ranges[[cols$col[i]]][2]
-          if (input_value[1] > min_val | input_value[2] < max_val) {
-            if (input[[paste0(cols$filt_clean[i], "-NAs")]]) {
-              data <- data %>%
-                filter((!!as.symbol(cols$col[i]) >= input_value[1] & 
-                          !!as.symbol(cols$col[i]) <= input_value[2]) |
-                         is.na(!!as.symbol(cols$col[i])))
-            } else {
-              data <- data %>%
-                filter(!!as.symbol(cols$col[i]) >= input_value[1],
-                       !!as.symbol(cols$col[i]) <= input_value[2])
-            }
+      if (is.null(input_value)) next
+      if (is.numeric(shiny_schiz[[cols$col[i]]])) {
+        min_val <- col_ranges[[cols$col[i]]][1]
+        max_val <- col_ranges[[cols$col[i]]][2]
+        # only apply numeric filter when slider has been moved off its default range
+        if (input_value[1] > min_val | input_value[2] < max_val) {
+          if (isTRUE(input[[paste0(cols$filt_clean[i], "-NAs")]])) {
+            data <- data %>%
+              filter((!!as.symbol(cols$col[i]) >= input_value[1] & 
+                        !!as.symbol(cols$col[i]) <= input_value[2]) |
+                       is.na(!!as.symbol(cols$col[i])))
+          } else {
+            data <- data %>%
+              filter(!!as.symbol(cols$col[i]) >= input_value[1],
+                     !!as.symbol(cols$col[i]) <= input_value[2])
           }
-        } else {
-          data <- data %>%
-            filter(!!as.symbol(cols$col[i]) %in% input_value)
         }
+      } else {
+        data <- data %>%
+          filter(!!as.symbol(cols$col[i]) %in% input_value)
       }
     }
-    values$data <- data
-  }
-  
-  lapply(unique(cols$filt_clean), function(filt) {
-    observeEvent(input[[filt]], update_data(),
-                 ignoreNULL = FALSE, ignoreInit = TRUE)
-  })
-  
-  lapply(unique(cols$filt_clean), function(filt) {
-    observeEvent(input[[paste0(filt, "-NAs")]], update_data(),
-                 ignoreNULL = FALSE, ignoreInit = TRUE)
+    data
   })
 
   ### render table ----
   output$table1 <- renderReactable({
     page_size <- coalesce(getReactableState("table1", name = "pageSize"), 100)
     sorted <- isolate(getReactableState("table1", name = "sorted"))
-    data <- cbind(values$data, details = rep_len(NA, nrow(values$data)))
+    filtered <- filtered_data()
+    data <- cbind(filtered, details = rep_len(NA, nrow(filtered)))
     # update unique species count
     runjs(paste0("$('#species_count').html('(", length(unique(data$Species)), " unique species)')"))
     runjs("$('#freeze_btn').removeClass('btn-info');")
@@ -498,7 +489,8 @@ server <- function(input, output, session) {
   ## tax. and syn. table ----
   ### setup reactive data ----
   df2_cols <- which(cols$cat %in% c("Family", "Subfamily", "Genus", "Species", "Distribution"))
-  update_data2 <- function() {
+  # filter taxonomy_syn based on all current tab-2 filter inputs
+  filtered_data2 <- reactive({
     data2 <- taxonomy_syn
     for (col in df2_cols) {
       input_value <- input[[paste0(cols$filt_clean[col], "2")]]
@@ -507,19 +499,14 @@ server <- function(input, output, session) {
           filter(!!as.symbol(cols$col[col]) %in% input_value)
       }
     }
-    values$data2 <- data2
-  }
-  
-  lapply(unique(cols$filt_clean[df2_cols]), function(filt) {
-    observeEvent(input[[paste0(filt, "2")]], update_data2(),
-                 ignoreNULL = FALSE, ignoreInit = TRUE)
+    data2
   })
 
   ### render table ----
   output$table2 <- renderReactable({
     page_size <- coalesce(getReactableState("table2", name = "pageSize"), 100)
     sorted <- isolate(getReactableState("table2", name = "sorted"))
-    data2 <- values$data2
+    data2 <- filtered_data2()
     # update unique species count
     runjs(paste0("$('#species_count2').html('Showing ", length(unique(data2$Species)), " species')"))
     reactable(data2,
