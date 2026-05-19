@@ -4,7 +4,7 @@ function downloadExcelFromTSV(tsv, filename, empty = false) {
   var ws = wb.addWorksheet('Sheet1');
 
   // Parse the TSV to an array of objects
-  var rows = Papa.parse(tsv, { header: true, delimiter: '\\t' }).data;
+  var rows = Papa.parse(tsv, { header: true, delimiter: '\t' }).data;
   var headers = Object.keys(rows[0] || {});
 
   // Create headers
