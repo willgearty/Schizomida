@@ -34,13 +34,15 @@ library(tiff)
 library(png)
 
 # update PNG files if TIFF files changed
-walk(files, function(file) {
+dir.create("docs/drawings_database", recursive = TRUE, showWarnings = FALSE)
+tiff_files <- list.files("data/drawings_database", pattern = "\\.tif$")
+for (file in tiff_files) {
   src <- file.path("data/drawings_database", file)
   dest <- file.path("docs/drawings_database", sub("\\.tif$", ".png", file))
   if (!file.exists(dest) || file.info(src)$mtime > file.info(dest)$mtime) {
     writePNG(readTIFF(src, native = FALSE), target = dest)
   }
-})
+}
 
 # copy R source file ----
 src <- readLines("app.R")
