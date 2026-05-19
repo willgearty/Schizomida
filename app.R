@@ -707,22 +707,8 @@ ui <- {
       tags$script(src = "https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"),
       tags$script(src = "export_excel.js"),
     ),
-    # JS for dark mode widget
-    tags$script(HTML("function addDarkmodeWidget() {
-        new Darkmode({label: '🌓', left: '32px', right: 'unset'}).showWidget();
-      }
-      window.addEventListener('load', addDarkmodeWidget);
-      $(function() {
-        $('.navbar-collapse').append($(\"<a href='https://github.com/willgearty/Schizomida/issues' target='_blank' class='btn btn-primary'>Contribute</a>\"));
-      });"
-    )),
-    # hacky JS/HTML for handling back/forward button
-    tags$script(HTML("$(function() {
-        $(window.parent).on('hashchange', function (e) {
-          $('#currentHash').val(window.parent.location.hash).change();
-        });
-      });"
-    )),
+    # Custom JS: dark mode widget, Contribute button, hashchange handler
+    tags$script(src = "app.js"),
     hidden(textInput("currentHash", NULL, value = "#database")),
     ## title ----
     titlePanel('Schizomida Trait Data Base (STDB)'),
