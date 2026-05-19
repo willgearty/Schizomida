@@ -84,6 +84,12 @@ num_cols <- apply(shiny_schiz_clean, 2, all.is.numeric)
 shiny_schiz[, num_cols] <- round(apply(shiny_schiz_clean[, num_cols], 2, all.is.numeric, what = "vector"),
                                  digits = 2)
 
+# calculate range for each numeric column
+col_ranges <- lapply(cols$col[num_cols], function(c) {
+  range(shiny_schiz[[c]], na.rm = TRUE)
+})
+names(col_ranges) <- cols$col[num_cols]
+
 # Get male and female columns
 male_names <- Reduce(union,
                      list(
@@ -231,8 +237,8 @@ server <- function(input, output, session) {
     for(i in which(num_cols & !cols$dupe)) {
       input_value <- input[[cols$filt_clean[i]]]
       ids <- paste0(cols$filt_clean[i], c("-NAs", "-NAs-label"))
-      min_val <- min(shiny_schiz[[cols$col[i]]], na.rm = TRUE)
-      max_val <- max(shiny_schiz[[cols$col[i]]], na.rm = TRUE)
+      min_val <- col_ranges[[cols$col[i]]][1]
+      max_val <- col_ranges[[cols$col[i]]][2]
       if (input_value[1] > min_val | input_value[2] < max_val) {
         sapply(ids, function(id) runjs(paste0("$('#", id, "').show()")))
       } else {
@@ -397,8 +403,8 @@ server <- function(input, output, session) {
       input_value <- input[[cols$filt_clean[i]]]
       if (!is.null(input_value)) {
         if (is.numeric(shiny_schiz[[cols$col[i]]])) {
-          min_val <- min(shiny_schiz[[cols$col[i]]], na.rm = TRUE)
-          max_val <- max(shiny_schiz[[cols$col[i]]], na.rm = TRUE)
+          min_val <- col_ranges[[cols$col[i]]][1]
+          max_val <- col_ranges[[cols$col[i]]][2]
           if (input_value[1] > min_val | input_value[2] < max_val) {
             if (input[[paste0(cols$filt_clean[i], "-NAs")]]) {
               data <- data %>%
@@ -752,8 +758,8 @@ ui <- {
                                                       list(fluidRow(column(12, h5(cat_name, id = idEscape(cat_name)))),
                                                            fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
                                                              if (is.numeric(shiny_schiz[[cols_sub$col[i]]])) {
-                                                               min_val <- min(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE)
-                                                               max_val <- max(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE)
+                                                               min_val <- col_ranges[[cols_sub$col[i]]][1]
+                                                               max_val <- col_ranges[[cols_sub$col[i]]][2]
                                                                column(6, sliderInput(inputId = cols_sub$filt_clean[i],
                                                                                      label = HTML(paste(cols_sub$filt[i], tooltip(HTML(paste0("<input type = 'checkbox' checked id = ",
                                                                                                                           "'", cols_sub$filt_clean[i], "-checkbox1'>")), "show/hide this column"),
@@ -790,8 +796,8 @@ ui <- {
                                                       list(fluidRow(column(12, h5(cat_name, id = idEscape(cat_name)))),
                                                            fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
                                                              if (is.numeric(shiny_schiz[[cols_sub$col[i]]])) {
-                                                               min_val <- min(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE)
-                                                               max_val <- max(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE)
+                                                               min_val <- col_ranges[[cols_sub$col[i]]][1]
+                                                               max_val <- col_ranges[[cols_sub$col[i]]][2]
                                                                column(6, sliderInput(inputId = cols_sub$filt_clean[i],
                                                                                      label = HTML(paste0(cols_sub$filt[i], " ",
                                                                                                          HTML(paste0("<input type = 'checkbox' checked id = ",
@@ -830,8 +836,8 @@ ui <- {
                                                       list(fluidRow(column(12, h5(cat_name, id = idEscape(cat_name)))),
                                                            fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
                                                              if (is.numeric(shiny_schiz[[cols_sub$col[i]]])) {
-                                                               min_val <- min(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE)
-                                                               max_val <- max(shiny_schiz[[cols_sub$col[i]]], na.rm = TRUE)
+                                                               min_val <- col_ranges[[cols_sub$col[i]]][1]
+                                                               max_val <- col_ranges[[cols_sub$col[i]]][2]
                                                                column(6, sliderInput(inputId = cols_sub$filt_clean[i],
                                                                                      label = HTML(paste0(cols_sub$filt[i], " ",
                                                                                                          HTML(paste0("<input type = 'checkbox' checked id = ",
