@@ -78,10 +78,10 @@ shiny_schiz <- shiny_schiz %>%
 # Find numeric columns
 shiny_schiz_clean <- shiny_schiz
 shiny_schiz_clean[shiny_schiz == "No data"] <- ""
-num_cols <- apply(shiny_schiz_clean, 2, all.is.numeric)
+num_cols <- sapply(shiny_schiz_clean, all.is.numeric)
 
 # Round and save numeric values
-shiny_schiz[, num_cols] <- round(apply(shiny_schiz_clean[, num_cols], 2, all.is.numeric, what = "vector"),
+shiny_schiz[, num_cols] <- round(sapply(shiny_schiz_clean[, num_cols], all.is.numeric, what = "vector"),
                                  digits = 2)
 
 # calculate range for each numeric column
