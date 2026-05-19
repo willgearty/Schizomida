@@ -104,6 +104,75 @@ female_names <- Reduce(union,
                          grep("(female", cols$cat, fixed = TRUE, value = TRUE)
                        ))
 
+# UI helpers ----
+# show/hide checkbox HTML wrapped in a tooltip
+column_toggle_checkbox <- function(id, suffix = "checkbox1") {
+  HTML(paste0("<input type='checkbox' checked id='", id, "-", suffix, "'>")) %>%
+    tooltip("show/hide this column")
+}
+
+# "include NAs" toggle (label + hidden checkbox) for a numeric slider; shown
+# only when the slider is moved off its default range (see server-side observer)
+na_toggle_checkbox <- function(id) {
+  HTML(paste0("<br><label id='", id, "-NAs-label' ",
+              "for='", id, "-NAs' ",
+              "style='font-size: small; display: none;'>",
+              "Include NAs</label> ",
+              "<input style='display: none;' type='checkbox' id='", id, "-NAs'>")) %>%
+    tooltip("include NA values in this column")
+}
+
+# build a single filter input column:
+# slider for numeric columns, selectInput for categorical ones
+make_filter_input <- function(i, cols_sub) {
+  col_name <- cols_sub$col[i]
+  filt_clean <- cols_sub$filt_clean[i]
+  col_clean <- cols_sub$col_clean[i]
+  if (is.numeric(shiny_schiz[[col_name]])) {
+    rng <- col_ranges[[col_name]]
+    column(6, sliderInput(
+      inputId = filt_clean,
+      label = HTML(paste(cols_sub$filt[i],
+                         column_toggle_checkbox(filt_clean),
+                         na_toggle_checkbox(filt_clean))),
+      min = rng[1], max = rng[2], value = rng, step = .01
+    ))
+  } else {
+    column(6, selectInput(
+      inputId = col_clean,
+      label = HTML(paste(col_name, column_toggle_checkbox(col_clean))),
+      choices = sort(unique(as.character(shiny_schiz[[col_name]]))),
+      multiple = TRUE
+    ))
+  }
+}
+
+# build the h5 subheader + fluidRow of filter inputs for one category
+make_filter_section <- function(cat_name, cols_sub) {
+  list(
+    fluidRow(column(12, h5(cat_name, id = idEscape(cat_name)))),
+    fluidRow(lapply(seq_len(nrow(cols_sub)),
+                    function(i) make_filter_input(i, cols_sub)))
+  )
+}
+
+# build a full accordion panel for non-taxonomy tabs (2-5); each panel groups
+# columns by subcategory, dropping (min)/(max) duplicates that share a slider
+make_body_panel <- function(tab_num, title) {
+  cats <- unique(cols$cat[cols$tab == tab_num])
+  accordion_panel(
+    HTML(paste0(title, " ",
+                span(HTML(paste0("<input type='checkbox' checked id='hide_all_", tab_num, "' ",
+                                 "data-bs-toggle='collapse' data-bs-target>"))) %>%
+                  tooltip("show/hide this entire section of columns"))),
+    value = as.character(tab_num),
+    lapply(cats, function(cat_name) {
+      cols_sub <- cols %>% filter(cat == cat_name, !dupe)
+      make_filter_section(cat_name, cols_sub)
+    })
+  )
+}
+
 # server.R ----
 server <- function(input, output, session) {
   # observers ----
@@ -726,154 +795,15 @@ ui <- {
                                                     fluidRow(lapply(seq_len(cols %>% filter(tab == 1) %>% nrow()), function(i) {
                                                       column(4,
                                                              selectInput(inputId = cols$col_clean[i],
-                                                                         label = HTML(paste0(cols$col[i],
-                                                                                             " <input type = 'checkbox' checked id = ",
-                                                                                             "'", cols$col_clean[i], "-checkbox1'>")) %>%
-                                                                           tooltip("show/hide this column"),
+                                                                         label = HTML(paste(cols$col[i], column_toggle_checkbox(cols$col_clean[i]))),
                                                                          choices = sort(unique(as.character(shiny_schiz[[cols$col[i]]]))),
                                                                          multiple = TRUE))
                                                     }))
                                                   ),
-                                                  accordion_panel(
-                                                    HTML(paste0("Prosoma ",
-                                                                span(HTML("<input type='checkbox' checked id='hide_all_2' ",
-                                                                          "data-bs-toggle='collapse' data-bs-target>")) %>%
-                                                                  tooltip("show/hide this entire section of columns"))),
-                                                    value = "2",
-                                                    lapply(unique(cols$cat[cols$tab == 2]), function(cat_name) {
-                                                      cols_sub <- cols %>% filter(cat == cat_name, !dupe)
-                                                      list(fluidRow(column(12, h5(cat_name, id = idEscape(cat_name)))),
-                                                           fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
-                                                             if (is.numeric(shiny_schiz[[cols_sub$col[i]]])) {
-                                                               min_val <- col_ranges[[cols_sub$col[i]]][1]
-                                                               max_val <- col_ranges[[cols_sub$col[i]]][2]
-                                                               column(6, sliderInput(inputId = cols_sub$filt_clean[i],
-                                                                                     label = HTML(paste(cols_sub$filt[i], tooltip(HTML(paste0("<input type = 'checkbox' checked id = ",
-                                                                                                                          "'", cols_sub$filt_clean[i], "-checkbox1'>")), "show/hide this column"),
-                                                                                                         HTML(paste0("<br><label id='", cols_sub$filt_clean[i], "-NAs-label' ",
-                                                                                                         "for='", cols_sub$filt_clean[i], "-NAs' ",
-                                                                                                         "style='font-size: small; display: none;'>",
-                                                                                                         "Include NAs</label> ",
-                                                                                                         "<input style='display: none;' type = 'checkbox' id = '",
-                                                                                                         cols_sub$filt_clean[i], "-NAs'>")) %>% tooltip("include NA values in this column"))),
-                                                                                     min = min_val,
-                                                                                     max = max_val,
-                                                                                     value = c(min_val, max_val),
-                                                                                     step = .01))
-                                                             } else {
-                                                               column(6, selectInput(inputId = cols_sub$col_clean[i],
-                                                                                     label = HTML(paste0(cols_sub$col[i],
-                                                                                                         " <input type = 'checkbox' checked id = ",
-                                                                                                         "'", cols_sub$col_clean[i], "-checkbox1'>")) %>%
-                                                                                       tooltip("show/hide this column"),
-                                                                                     choices = sort(unique(as.character(shiny_schiz[[cols_sub$col[i]]]))),
-                                                                                     multiple = TRUE))
-                                                             }
-                                                           })))
-                                                    })
-                                                  ),
-                                                  accordion_panel(
-                                                    HTML(paste0("Opisthosoma ",
-                                                                span(HTML("<input type='checkbox' checked id='hide_all_3' ",
-                                                                          "data-bs-toggle='collapse' data-bs-target>")) %>%
-                                                                  tooltip("show/hide this entire section of columns"))),
-                                                    value = "3",
-                                                    lapply(unique(cols$cat[cols$tab == 3]), function(cat_name) {
-                                                      cols_sub <- cols %>% filter(cat == cat_name, !dupe)
-                                                      list(fluidRow(column(12, h5(cat_name, id = idEscape(cat_name)))),
-                                                           fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
-                                                             if (is.numeric(shiny_schiz[[cols_sub$col[i]]])) {
-                                                               min_val <- col_ranges[[cols_sub$col[i]]][1]
-                                                               max_val <- col_ranges[[cols_sub$col[i]]][2]
-                                                               column(6, sliderInput(inputId = cols_sub$filt_clean[i],
-                                                                                     label = HTML(paste0(cols_sub$filt[i], " ",
-                                                                                                         HTML(paste0("<input type = 'checkbox' checked id = ",
-                                                                                                         "'", cols_sub$filt_clean[i], "-checkbox1'>")) %>%
-                                                                                                           tooltip("show/hide this column"),
-                                                                                                         "<br><label id='", cols_sub$filt_clean[i], "-NAs-label' ",
-                                                                                                         "for='", cols_sub$filt_clean[i], "-NAs' ",
-                                                                                                         "style='font-size: small; display: none;'>",
-                                                                                                         "Include NAs</label> ",
-                                                                                                         "<input style='display: none;' type = 'checkbox' id = '",
-                                                                                                         cols_sub$filt_clean[i], "-NAs'>")),
-                                                                                     min = min_val,
-                                                                                     max = max_val,
-                                                                                     value = c(min_val, max_val),
-                                                                                     step = .01))
-                                                             } else {
-                                                               column(6, selectInput(inputId = cols_sub$col_clean[i],
-                                                                                     label = HTML(paste0(cols_sub$col[i],
-                                                                                                         " <input type = 'checkbox' checked id = ",
-                                                                                                         "'", cols_sub$col_clean[i], "-checkbox1'>")) %>%
-                                                                                       tooltip("show/hide this column"),
-                                                                                     choices = sort(unique(as.character(shiny_schiz[[cols_sub$col[i]]]))),
-                                                                                     multiple = TRUE))
-                                                             }
-                                                           })))
-                                                    })
-                                                  ),
-                                                  accordion_panel(
-                                                    HTML(paste0("Legs and Size ",
-                                                                span(HTML("<input type='checkbox' checked id='hide_all_4' ",
-                                                                          "data-bs-toggle='collapse' data-bs-target>")) %>%
-                                                                  tooltip("show/hide this entire section of columns"))),
-                                                    value = "4",
-                                                    lapply(unique(cols$cat[cols$tab == 4]), function(cat_name) {
-                                                      cols_sub <- cols %>% filter(cat == cat_name, !dupe)
-                                                      list(fluidRow(column(12, h5(cat_name, id = idEscape(cat_name)))),
-                                                           fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
-                                                             if (is.numeric(shiny_schiz[[cols_sub$col[i]]])) {
-                                                               min_val <- col_ranges[[cols_sub$col[i]]][1]
-                                                               max_val <- col_ranges[[cols_sub$col[i]]][2]
-                                                               column(6, sliderInput(inputId = cols_sub$filt_clean[i],
-                                                                                     label = HTML(paste0(cols_sub$filt[i], " ",
-                                                                                                         HTML(paste0("<input type = 'checkbox' checked id = ",
-                                                                                                         "'", cols_sub$filt_clean[i], "-checkbox1'>")) %>%
-                                                                                                           tooltip("show/hide this column"),
-                                                                                                         "<br><label id='", cols_sub$filt_clean[i], "-NAs-label' ",
-                                                                                                         "for='", cols_sub$filt_clean[i], "-NAs' ",
-                                                                                                         "style='font-size: small; display: none;'>",
-                                                                                                         "Include NAs</label> ",
-                                                                                                         HTML(paste0("<input style='display: none;' type = 'checkbox' id = '",
-                                                                                                         cols_sub$filt_clean[i], "-NAs'>")) %>%
-                                                                                                           tooltip("include NA values in this column"))),
-                                                                                     min = min_val,
-                                                                                     max = max_val,
-                                                                                     value = c(min_val, max_val),
-                                                                                     step = .01))
-                                                             } else {
-                                                               column(6, selectInput(inputId = cols_sub$col_clean[i],
-                                                                                     label = HTML(paste0(cols_sub$col[i],
-                                                                                                         " <input type = 'checkbox' checked id = ",
-                                                                                                         "'", cols_sub$col_clean[i], "-checkbox1'>")) %>%
-                                                                                       tooltip("show/hide this column"),
-                                                                                     choices = sort(unique(as.character(shiny_schiz[[cols_sub$col[i]]]))),
-                                                                                     multiple = TRUE))
-                                                             }
-                                                           })))
-                                                    })
-                                                  ),
-                                                  accordion_panel(
-                                                    HTML(paste0("Ecology and Locality ",
-                                                                span(HTML("<input type='checkbox' checked id='hide_all_5' ",
-                                                                          "data-bs-toggle='collapse' data-bs-target>")) %>%
-                                                                  tooltip("show/hide this entire section of columns"))),
-                                                    value = "5",
-                                                    lapply(unique(cols$cat[cols$tab == 5]), function(cat_name) {
-                                                      cols_sub <- cols %>% filter(cat == cat_name)
-                                                      list(fluidRow(column(12, h5(cat_name, id = idEscape(cat_name)))),
-                                                           fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
-                                                             column(6,
-                                                                    selectInput(inputId = cols_sub$col_clean[i],
-                                                                                label = HTML(paste0(cols_sub$col[i],
-                                                                                                    " <input type = 'checkbox' checked id = ",
-                                                                                                    "'", cols_sub$col_clean[i], "-checkbox1'>")) %>%
-                                                                                  tooltip("show/hide this column"),
-                                                                                choices = sort(unique(as.character(shiny_schiz[[cols_sub$col[i]]]))),
-                                                                                multiple = TRUE))
-                                                           })))
-                                                    })
-                                                  )
+                                                  make_body_panel(2, "Prosoma"),
+                                                  make_body_panel(3, "Opisthosoma"),
+                                                  make_body_panel(4, "Legs and Size"),
+                                                  make_body_panel(5, "Ecology and Locality")
                                         )
                           )),
                           #### reset button ----
@@ -924,10 +854,7 @@ ui <- {
                                                     fluidRow(lapply(seq_len(cols %>% filter(tab == 1, cat != "Sex") %>% nrow()), function(i) {
                                                       column(4,
                                                              selectInput(inputId = paste0(cols$col_clean[i], "2"),
-                                                                         label = HTML(paste0(cols$col[i],
-                                                                                             " <input type = 'checkbox' checked id = ",
-                                                                                             "'", cols$col_clean[i], "-checkbox2'>")) %>%
-                                                                           tooltip("show/hide this column"),
+                                                                         label = HTML(paste(cols$col[i], column_toggle_checkbox(cols$col_clean[i], "checkbox2"))),
                                                                          choices = sort(unique(as.character(taxonomy_syn[[cols$col[i]]]))),
                                                                          multiple = TRUE))
                                                     }))
@@ -940,10 +867,7 @@ ui <- {
                                                            fluidRow(lapply(seq_len(nrow(cols_sub)), function(i) {
                                                              column(6,
                                                                     selectInput(inputId = paste0(cols_sub$col_clean[i], "2"),
-                                                                                label = HTML(paste0(cols_sub$col[i],
-                                                                                                    " <input type = 'checkbox' checked id = ",
-                                                                                                    "'", cols_sub$col_clean[i], "-checkbox2'>")) %>%
-                                                                                  tooltip("show/hide this column"),
+                                                                                label = HTML(paste(cols_sub$col[i], column_toggle_checkbox(cols_sub$col_clean[i], "checkbox2"))),
                                                                                 choices = sort(unique(as.character(taxonomy_syn[[cols_sub$col[i]]]))),
                                                                                 multiple = TRUE))
                                                            })))
