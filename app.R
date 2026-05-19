@@ -462,7 +462,7 @@ server <- function(input, output, session) {
   output$table1 <- renderReactable({
     page_size <- coalesce(getReactableState("table1", name = "pageSize"), 100)
     sorted <- isolate(getReactableState("table1", name = "sorted"))
-    data <- cbind(values$data, details = NA)
+    data <- cbind(values$data, details = rep_len(NA, nrow(values$data)))
     # update unique species count
     runjs(paste0("$('#species_count').html('(", length(unique(data$Species)), " unique species)')"))
     runjs("$('#freeze_btn').removeClass('btn-info');")
