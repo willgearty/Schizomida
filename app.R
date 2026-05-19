@@ -132,41 +132,13 @@ server <- function(input, output, session) {
   ### row selection ----
   # modal popup when selecting a row
   observeEvent(input$show_details, {
-    data <- shiny_schiz
-    for (i in seq_len(nrow(cols))) {
-      input_value <- input[[cols$filt_clean[i]]]
-      if (!is.null(input_value)) {
-        if (is.numeric(shiny_schiz[[cols$col[i]]])) {
-          min_val <- min(shiny_schiz[[cols$col[i]]], na.rm = TRUE)
-          max_val <- max(shiny_schiz[[cols$col[i]]], na.rm = TRUE)
-          if (input_value[1] > min_val | input_value[2] < max_val) {
-            if (input[[paste0(cols$filt_clean[i], "-NAs")]]) {
-              data <- data %>%
-                filter((!!as.symbol(cols$col[i]) >= input_value[1] & 
-                          !!as.symbol(cols$col[i]) <= input_value[2]) |
-                         is.na(!!as.symbol(cols$col[i])))
-            } else {
-              data <- data %>%
-                filter(!!as.symbol(cols$col[i]) >= input_value[1],
-                       !!as.symbol(cols$col[i]) <= input_value[2])
-            }
-          }
-        } else {
-          data <- data %>%
-            filter(!!as.symbol(cols$col[i]) %in% input_value)
-        }
-      }
-    }
+    row <- values$data[input$show_details, ]
     modal <- modalDialog(
-      tags$table(
-        lapply(colnames(data), function(name) {
-          tags$tr(tags$th(name), tags$td(data[[name]][input$show_details]))
-        })
-      ),
-      title = paste0(data$Species[input$show_details], " (",
-                     data$Sex[input$show_details], ")"),
-      size = "l",
-      easyClose = TRUE
+      tags$table(lapply(colnames(row), function(name) {
+        tags$tr(tags$th(name), tags$td(row[[name]]))
+      })),
+      title = paste0(row$Species, " (", row$Sex, ")"),
+      size = "l", easyClose = TRUE
     )
     # insert dismiss button in the header
     modal$children[[1]]$children[[1]]$children[[1]]$children[[2]] <- modalButton("Dismiss")
