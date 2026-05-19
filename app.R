@@ -2,6 +2,7 @@
 # Any changes to this file will be automatically copied to the
 # shinylive source code by convert_data.R.
 
+# ---SHINYLIVE-START---
 # The Schizomid Trait Database - ShinyApp
 # William Gearty and Sandro Pascal Müller
 # 2023-09-07
